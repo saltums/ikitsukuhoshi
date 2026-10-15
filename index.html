@@ -1684,7 +1684,7 @@ function buildFeed(){
 }
 function stepMs(){const n=Math.max(1,FEED.length);return Math.max(1500,Math.min(6000,Math.round(+$('#speed').value*1000/n)))}
 function stepW(it){const big=['mind','contact','cosmic','end'].includes(it.e.kind);return (it.p.id===OSHI?1.5:1)*(big?1.3:.85)}
-function showEta(){const n=FEED.length,m=(FEED.reduce((a,it)=>a+stepMs()*stepW(it),0)+INTRO_MS)/60000;$('#eta').textContent=`${n}件のできごと ・ 約${m<1?'1分未満':(Math.round(m*10)/10)+'分'}`}
+function showEta(){const n=FEED.length,m=(FEED.reduce((a,it)=>a+stepMs()*stepW(it),0)+INTRO_MS)/60000;$('#eta').textContent=m<1?'1分ほどで見終わります':`約${Math.round(m)}分で見終わります`}
 function scaleNote(t){
   const pct=Math.min(100,t/1.39e10*100).toFixed(0);
   let ref;
