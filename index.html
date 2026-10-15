@@ -368,7 +368,7 @@ details[open] summary::after{content:"－"}
       <button class="btn primary big" id="watchBtn" type="button">▶ 観測を始める</button>
       <button class="btn small" id="skipBtn" type="button" data-only="watch">▶▶ 結果へスキップ</button>
       <button class="btn small" id="newBtn" type="button" data-only="start">別の銀河にする</button>
-      <label class="spd" id="spdBox"><span class="lfull">かける時間</span><span class="lshort">速さ</span><select id="speed"><option value="120">はやい(最長2分)</option><option value="300" selected>ふつう(最長5分)</option><option value="900">じっくり(最長15分)</option></select></label>
+      <label class="spd" id="spdBox"><span>スピード</span><select id="speed"><option value="120">はやい(最長2分)</option><option value="300" selected>ふつう(最長5分)</option><option value="900">じっくり(最長15分)</option></select></label>
       <span class="spd" id="eta" data-only="start"></span>
     </div>
     <div class="map" id="mapBox">
@@ -1682,9 +1682,14 @@ function buildFeed(){
   G.planets.forEach(p=>V(p).events.forEach(e=>{if(e.major)FEED.push({e,p})}));
   FEED.sort((a,b)=>a.e.t-b.e.t);
 }
-function stepMs(){const n=Math.max(1,FEED.length);return Math.max(1500,Math.min(6000,Math.round(+$('#speed').value*1000/n)))}
+const SPD={120:{nm:'はやい',lo:1000,hi:3000},300:{nm:'ふつう',lo:1500,hi:6000},900:{nm:'じっくり',lo:2500,hi:12000}};
+function stepMsFor(v){const n=Math.max(1,FEED.length),c=SPD[v]||SPD[300];return Math.max(c.lo,Math.min(c.hi,Math.round(v*1000/n)))}
+function stepMs(){return stepMsFor(+$('#speed').value)}
 function stepW(it){const big=['mind','contact','cosmic','end'].includes(it.e.kind);return (it.p.id===OSHI?1.5:1)*(big?1.3:.85)}
-function showEta(){const n=FEED.length,m=(FEED.reduce((a,it)=>a+stepMs()*stepW(it),0)+INTRO_MS)/60000;$('#eta').textContent=m<1?'1分ほどで見終わります':`約${Math.round(m)}分で見終わります`}
+function showEta(){
+  [...$('#speed').options].forEach(o=>{const v=+o.value,m=(FEED.reduce((a,it)=>a+stepMsFor(v)*stepW(it),0)+INTRO_MS)/60000;o.textContent=`${(SPD[v]||SPD[300]).nm}(${m<1?'1分以内':'約'+Math.round(m)+'分'})`});
+  $('#eta').textContent='';
+}
 function scaleNote(t){
   const pct=Math.min(100,t/1.39e10*100).toFixed(0);
   let ref;
