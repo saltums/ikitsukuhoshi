@@ -1990,8 +1990,8 @@ const GSECEL=document.getElementById('godSec');if(GSECEL)GSECEL.addEventListener
 });
 document.addEventListener('click',ev=>{const b=ev.target.closest('[data-prof]');if(b){openProfile(+b.dataset.prof,b.dataset.proft!=null?+b.dataset.proft:null);return}});
 $('#profModal').addEventListener('click',ev=>{if(ev.target.closest('.pclose')||ev.target.id==='profModal'){closeProfile();return}const t=ev.target.closest('[data-ptab]');if(t){PROF.tab=t.dataset.ptab;renderProfile();return}const s=ev.target.closest('[data-pshare]');if(s)doShare(s.dataset.pshare)});
-$('#askModal').addEventListener('click',ev=>{const a=ev.target.closest('[data-ask]');if(a){answerAsk(a.dataset.ask==='y');return}const w=ev.target.closest('[data-sw]');if(w)answerSwitch(w.dataset.sw)});
-document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&PROF){closeProfile();return}if(ev.key==='Escape'&&ASK){if(ASK.sw)answerSwitch('no');else answerAsk(false)}});
+$('#askModal').addEventListener('click',ev=>{const a=ev.target.closest('[data-ask]');if(a){answerAsk(a.dataset.ask==='y');return}const w=ev.target.closest('[data-sw]');if(w){answerSwitch(w.dataset.sw);return}const cf=ev.target.closest('[data-cf]');if(cf)answerSkip(cf.dataset.cf==='y')});
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&PROF){closeProfile();return}if(ev.key==='Escape'&&ASK){if(ASK.cf)answerSkip(false);else if(ASK.sw)answerSwitch('no');else answerAsk(false)}});
 try{const r=localStorage.getItem('hoshiboshi.rare');if(r!==null&&/^[012]$/.test(r))RARE=+r}catch(e){}
 $('#rare').value=String(RARE);
 $('#rare').addEventListener('change',()=>{RARE=+$('#rare').value;try{localStorage.setItem('hoshiboshi.rare',String(RARE))}catch(e){}run(GAL.seed)});
@@ -2003,7 +2003,20 @@ $('#nextBtn').addEventListener('click',()=>run(rndSeed()));
 $('#shareBtn').addEventListener('click',()=>{const b=$('#shareBtn'),t=SHARE.replace(/\\n/g,'\n');const ok=()=>{b.textContent='コピーしました';setTimeout(()=>{b.textContent='結果をコピー'},1600)};try{navigator.clipboard.writeText(t).then(ok,()=>{b.textContent='コピーできませんでした'})}catch(e){b.textContent='コピーできませんでした'}});
 $('#futureBox').addEventListener('change',e=>{FUTURE=e.target.checked;render()});
 $('#watchBtn').addEventListener('click',()=>{if(WATCH)togglePause();else startWatch()});
-$('#skipBtn').addEventListener('click',skipWatch);
+function confirmSkip(){
+  if(!WATCH){skipWatch();return}
+  if(ASK)return;
+  const wasPaused=PAUSED;PAUSED=true;stopTimers();
+  ASK={cf:true,wasPaused};const m=$('#askModal');
+  m.querySelector('.mcard').innerHTML=`<h3 id="askTitle">結果へスキップしますか?</h3><p class="now">観測をここで終えて、すぐに結果を表示します。このあとの出来事は見られず、神の一手の問いかけも出なくなります。</p><div class="askbtn"><button class="btn primary" type="button" data-cf="n">観測をつづける</button><button class="btn" type="button" data-cf="y">スキップする</button></div>`;
+  m.hidden=false;const c=m.querySelector('[data-cf=n]');if(c)c.focus();
+}
+function answerSkip(yes){
+  if(!ASK||!ASK.cf)return;const wp=ASK.wasPaused;ASK=null;hideAsk();
+  if(yes){skipWatch();return}
+  PAUSED=wp;if(!PAUSED)playStep();
+}
+$('#skipBtn').addEventListener('click',confirmSkip);
 $('#speed').addEventListener('change',showEta);
 $('#copyBtn').addEventListener('click',()=>{
   const b=$('#copyBtn'),box=$('#seedBox');
