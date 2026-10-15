@@ -360,7 +360,7 @@ details[open] summary::after{content:"－"}
     <p class="sub" data-only="title">行き着く星か、生き尽くす星か。</p>
     <p class="lede" data-only="title">ビッグバンのあと、銀河のあちこちで命が生まれ、文明が育ち、そして終わっていきます。起きることは星ごとにばらばらです。応援する星を1つ決めて、ただ眺めてください。</p>
     <ol class="howto" data-only="title"><li><b>1</b>応援する星を選ぶ(任意)</li><li><b>2</b>「観測を始める」を押す</li><li><b>3</b>推しの結末を見届ける</li></ol>
-    <div class="titlebtns" data-only="title"><button class="btn primary big" id="enterBtn" type="button">はじめる</button><button class="btn" id="dailyBtn2" type="button">今日の銀河ではじめる</button></div>
+    <div class="titlebtns" data-only="title"><button class="btn primary big" id="enterBtn" type="button">はじめる</button></div>
   </header>
 
   <section aria-label="銀河マップ" data-only="start watch result">
@@ -368,7 +368,6 @@ details[open] summary::after{content:"－"}
       <button class="btn primary big" id="watchBtn" type="button">▶ 観測を始める</button>
       <button class="btn small" id="skipBtn" type="button" data-only="watch">▶▶ 結果へスキップ</button>
       <button class="btn small" id="newBtn" type="button" data-only="start">別の銀河にする</button>
-      <button class="btn small" id="dailyBtn" type="button" data-only="start">今日の銀河</button>
       <label class="spd" id="spdBox"><span class="lfull">かける時間</span><span class="lshort">速さ</span><select id="speed"><option value="120">はやい(最長2分)</option><option value="300" selected>ふつう(最長5分)</option><option value="900">じっくり(最長15分)</option></select></label>
       <span class="spd" id="eta" data-only="start"></span>
     </div>
@@ -1991,7 +1990,6 @@ try{const r=localStorage.getItem('hoshiboshi.rare');if(r!==null&&/^[012]$/.test(
 $('#rare').value=String(RARE);
 $('#rare').addEventListener('change',()=>{RARE=+$('#rare').value;try{localStorage.setItem('hoshiboshi.rare',String(RARE))}catch(e){}run(GAL.seed)});
 $('#newBtn').addEventListener('click',()=>run(rndSeed()));
-$('#dailyBtn').addEventListener('click',()=>run(dailySeed()));
 $('#goBtn').addEventListener('click',()=>run($('#seedBox').value));
 $('#seedBox').addEventListener('keydown',e=>{if(e.key==='Enter')run($('#seedBox').value)});
 $('#againBtn').addEventListener('click',()=>startWatch());
@@ -2010,7 +2008,6 @@ $('#glossList').innerHTML=Object.keys(GLOSS).map(k=>`<dt>${k}</dt><dd>${GLOSS[k]
 renderCatalog();
 run(rndSeed());setPhase('title');
 $('#enterBtn').addEventListener('click',()=>{setPhase('start');window.scrollTo(0,0)});
-$('#dailyBtn2').addEventListener('click',()=>{run(dailySeed())});
 
 </script>
 
