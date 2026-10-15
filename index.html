@@ -244,6 +244,11 @@ details.extras>*:not(summary){margin:0!important}
 .fbox .kb{display:inline-block;font:400 11px/1 var(--f-disp);padding:3px 6px;border-radius:3px;background:var(--c);color:#14162b;margin-right:6px;vertical-align:2px}
 .fbox b{font-weight:500}.fbox p{margin-top:4px;font-size:13px;color:var(--dim)}
 .fbox.up{border-color:var(--good)}.fbox.down{border-color:var(--bad)}
+.stagebar{margin:0 0 12px}
+body[data-ph="watch"] #spdBox{position:fixed;z-index:40;top:max(10px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));margin:0;padding:6px 8px 6px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(22,25,54,.92);box-shadow:0 6px 18px rgba(0,0,0,.45);backdrop-filter:blur(4px)}
+.lshort{display:none}body[data-ph="watch"] #spdBox .lfull{display:none}body[data-ph="watch"] #spdBox .lshort{display:inline;font-size:12px}
+body[data-ph="watch"] #spdBox{gap:6px}
+body[data-ph="watch"] #spdBox select{padding:3px 6px;font-size:12px;min-height:0}
 .oshi-why{margin-top:8px;font-size:13px;color:var(--dim);text-wrap:pretty}
 .oshi .lab{flex-basis:100%;font-size:13px;color:var(--dim);margin-right:4px}
 .oshi button{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;font-size:13px;cursor:pointer}
@@ -357,6 +362,14 @@ details[open] summary::after{content:"－"}
   </header>
 
   <section aria-label="銀河マップ" data-only="start watch result">
+    <div class="stagebar" data-only="start watch">
+      <button class="btn primary big" id="watchBtn" type="button">観測を始める</button>
+      <button class="btn small" id="skipBtn" type="button" data-only="watch">結果へスキップ</button>
+      <button class="btn small" id="newBtn" type="button" data-only="start">別の銀河にする</button>
+      <button class="btn small" id="dailyBtn" type="button" data-only="start">今日の銀河</button>
+      <label class="spd" id="spdBox"><span class="lfull">かける時間</span><span class="lshort">速さ</span><select id="speed"><option value="120">はやい(最長2分)</option><option value="300" selected>ふつう(最長5分)</option><option value="900">じっくり(最長15分)</option></select></label>
+      <span class="spd" id="eta" data-only="start"></span>
+    </div>
     <div class="map" id="mapBox">
       <canvas id="gmap" width="320" height="200" aria-hidden="true"></canvas>
       <div class="map-name" id="galName"></div>
@@ -370,14 +383,6 @@ details[open] summary::after{content:"－"}
     <div class="banner idle" id="banner" data-only="watch" aria-live="polite"></div>
     <ol class="era" id="era" data-only="watch" aria-label="いまの時代"><li data-k="birth">星が生まれる</li><li data-k="life">命が宿る</li><li data-k="mind">知性が目覚める</li><li data-k="civ">文明が育つ</li><li data-k="end">結末</li></ol>
     <div class="score" id="score" data-only="watch" aria-live="off"></div>
-    <div class="stagebar" data-only="start watch">
-      <button class="btn primary big" id="watchBtn" type="button">観測を始める</button>
-      <button class="btn small" id="skipBtn" type="button" data-only="watch">結果へスキップ</button>
-      <button class="btn small" id="newBtn" type="button" data-only="start">別の銀河にする</button>
-      <button class="btn small" id="dailyBtn" type="button" data-only="start">今日の銀河</button>
-      <label class="spd"><span>かける時間</span><select id="speed"><option value="120">短め 最長2分</option><option value="300" selected>ふつう 最長5分</option><option value="900">じっくり 最長15分</option></select></label>
-      <span class="spd" id="eta"></span>
-    </div>
     <div class="legend2" data-only="watch result" aria-label="マップの色の見かた"><b>色の見かた</b>
       <span class="k-thriving"><i></i>文明が続く</span><span class="k-allied"><i></i>共存・昇華</span><span class="k-evolving"><i></i>進化中・衰退</span><span class="k-extinct"><i></i>滅亡</span><span class="k-barren"><i></i>命なし</span><span class="note">★は推しの星</span></div>
     <p class="tnote" id="tnote" data-only="watch"></p>
