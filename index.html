@@ -1768,7 +1768,7 @@ function startWatch(){
   setPhase('watch');ASKN=0;OLIVE_KEY=null;updateOshiLive(-1);ASK=null;ASKED={};GRNG=mkRng(hashStr(GAL.seed+'#ask'));stopTimers();WATCH=true;PAUSED=false;document.body.classList.add('watching');
   $('#feedList').innerHTML='';$('#feedEmpty').hidden=true;FEEDI=0;buildFeed();showEta();applyMarkers(-1);
   $('#watchBtn').textContent='❚❚ 一時停止';$('#mprogBar').style.width='0%';
-  $('#mapBox').scrollIntoView({block:'start',behavior:'auto'});
+  toTop();
   idleBanner(auto?`推しが決まっていなかったので、${OSHI+1}番の${GAL.planets[OSHI].name}を見守ることにした。宇宙が生まれた。ここから、星々が生まれていく。`:'宇宙が生まれた。ここから、星々が生まれていく。');$('#mphase').textContent='ビッグバン';
   const first=FEED.length?FEED[0].e.t:GAL.tObs;
   setClock(0);tweenClock(0,first,INTRO_MS*.92);
@@ -1916,6 +1916,7 @@ function updateOshiLive(t){
   paintAll(el);
   if(cap){void el.offsetWidth;el.classList.add('pop')}
 }
+function toTop(){const go=()=>{try{window.scrollTo({top:0,left:0,behavior:'auto'})}catch(e){window.scrollTo(0,0)}document.documentElement.scrollTop=0;document.body.scrollTop=0};go();requestAnimationFrame(()=>{go();setTimeout(go,60)})}
 function setPhase(p){
   PHASE=p;document.body.dataset.ph=p;
   const fd=document.getElementById('feedDet');if(fd)fd.open=(p==='watch');
@@ -1955,7 +1956,7 @@ function render(){
 }
 function run(seed,variants){
   seed=(seed||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8)||rndSeed();
-  if(PROF)closeProfile();MODS=[];GSEL=null;OSHI=null;OLIVE_KEY=null;{const ol=document.getElementById('oshiLive');if(ol){ol.innerHTML='';ol.hidden=true}}setPhase('start');GAL=simulate(seed,variants||{});render();window.scrollTo(0,0);saveHist(seed);
+  if(PROF)closeProfile();MODS=[];GSEL=null;OSHI=null;OLIVE_KEY=null;{const ol=document.getElementById('oshiLive');if(ol){ol.innerHTML='';ol.hidden=true}}setPhase('start');GAL=simulate(seed,variants||{});render();toTop();saveHist(seed);
 }
 function saveHist(seed){
   try{
@@ -2012,7 +2013,7 @@ $('#copyBtn').addEventListener('click',()=>{
 $('#glossList').innerHTML=Object.keys(GLOSS).map(k=>`<dt>${k}</dt><dd>${GLOSS[k]}</dd>`).join('');
 renderCatalog();
 run(rndSeed());setPhase('title');
-$('#enterBtn').addEventListener('click',()=>{setPhase('start');window.scrollTo(0,0)});
+$('#enterBtn').addEventListener('click',()=>{setPhase('start');toTop()});
 
 </script>
 
