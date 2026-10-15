@@ -416,7 +416,7 @@ details[open] summary::after{content:"－"}
     <div class="score" id="score" data-only="watch" aria-live="off"></div>
     <details class="set" data-only="start"><summary>設定・銀河コード・履歴</summary>
       <div class="ctrl">
-        <div class="field"><label for="seedBox">銀河コード</label><input id="seedBox" maxlength="8" autocomplete="off" spellcheck="false"></div>
+        <div class="field"><label for="seedBox">銀河コード</label><input id="seedBox" autocomplete="off" spellcheck="false"></div>
         <button class="btn small" id="goBtn" type="button">このコードにする</button>
         <button class="btn small" id="copyBtn" type="button">コードをコピー</button>
         <label class="spd"><span>宇宙のにぎやかさ</span><select id="rare"><option value="0">リアル(ほとんど無人)</option><option value="1" selected>ふつう</option><option value="2">にぎやか(フィクション寄り)</option></select></label>
@@ -439,10 +439,6 @@ details[open] summary::after{content:"－"}
     <nav class="jump" id="jump" aria-label="星へジャンプ"></nav>
     <div class="stats" id="stats"></div>
     <details class="more2"><summary>星ごとの時間軸</summary><div class="gantt" id="gantt" aria-label="星ごとの時間軸"></div></details>
-    <details class="more2 transfer"><summary>この結果を続編に引き継ぐ</summary>
-      <p class="pnote">続編では、気に入った文明が生まれてから途絶えるまでを、もっと近くから追いかけられる予定です。このコードを続編に貼ると、同じ銀河・同じ推し・同じ神の一手の結果から始められます。</p>
-      <div class="trow"><input id="transferBox" readonly aria-label="引き継ぎコード"><button class="btn small" id="transferCopy" type="button">コードをコピー</button></div>
-    </details>
     <div class="again"><button class="btn primary" id="againBtn" type="button">↻ もう一度見る</button><button class="btn" id="nextBtn" type="button">新しい銀河へ</button><a class="btn xbtn" id="xBtn" href="#" target="_blank" rel="noopener">Xでポスト</a><button class="btn small" id="shareBtn" type="button">結果をコピー</button></div>
   </section>
 
@@ -1467,7 +1463,7 @@ function renderProfile(){
 /* 共有用の画像(カード)を作る */
 function shareText(){
   const {p,L}=PROF,v=V(p),r=rarity(p);
-  return `いきつくほし\n${GAL.name}の${p.name}(${p.type.jp})に生まれた「${L.name}」${L.mind?`\n自称「${L.selfName}」、${L.langName}を話す。「こんにちは」は「${L.words[0][1]}」\n${L.society}`:''}\n結末: ${v.outcome.title}(${r.txt}の運命)\n銀河コード: ${GAL.seed}`;
+  return `いきつくほし\n${GAL.name}の${p.name}(${p.type.jp})に生まれた「${L.name}」${L.mind?`\n自称「${L.selfName}」、${L.langName}を話す。「こんにちは」は「${L.words[0][1]}」\n${L.society}`:''}\n結末: ${v.outcome.title}(${r.txt}の運命)\n銀河コード: ${resultCode()}`;
 }
 function wrapText(ctx,t,x,y,w,lh,maxL){
   let line='',n=0;for(const ch of t){const test=line+ch;if(ctx.measureText(test).width>w&&line){ctx.fillText(line,x,y);y+=lh;n++;line=ch;if(maxL&&n>=maxL)return y}else line=test}
@@ -1493,7 +1489,7 @@ function makeShareImage(){
   lines.forEach(t=>{y=wrapText(ctx,t,56,y,W-112,34,3)+10});
   ctx.fillStyle='#ffd073';ctx.font=`26px ${F}`;y=Math.max(y+10,760);y=wrapText(ctx,`結末: ${v.outcome.title}`,56,y,W-112,36,2);
   ctx.font=`40px ${F}`;ctx.fillText(`${r.txt}の運命`,56,y+20);
-  ctx.fillStyle='#9aa1d2';ctx.font=`20px ${F}`;ctx.fillText(`銀河コード ${GAL.seed}`,56,H-56);
+  ctx.fillStyle='#9aa1d2';ctx.font=`20px ${F}`;ctx.fillText(`銀河コード ${resultCode()}`,56,H-56);
   return cv;
 }
 function doShare(kind){
@@ -1683,12 +1679,12 @@ function renderDigest(){
     $('#oshiResult').innerHTML=`<div class="oshi-card"><div class="tile">${v.finalG?spr(v.finalG):plc(p)}</div><div><p class="eyebrow">${SHARED?'共有した人の推し':'あなたの推し'} ★ ${OSHI+1}番 ${p.name}</p><h3>${o.title}</h3><p>${gl(o.text)}</p><p class="verdict">${vd}</p><p class="rare">${p.type.jp}が、この運命にたどり着く確率 <b>${rarity(p).txt}</b> ・ ${rarity(p).tier}</p>${v.finalG?`<button type="button" class="btn small pbtn" data-prof="${p.id}">この種族をもっと知る・共有する</button>`:''}</div></div>`;
     oshiTxt=`推し: ${p.name}は「${o.title}」(${rarity(p).txt}の運命)。\n`;
   }else $('#oshiResult').innerHTML='';
-  SHARE=`いきつくほし\n「${ti.replace(/[「」]/g,'')}」(${G.name})\n${sub}\n${oshiTxt}${MODS.length?'神の一手を'+MODS.length+'回使った。\n':''}銀河コード: ${G.seed}`;
+  SHARE=`いきつくほし\n「${ti.replace(/[「」]/g,'')}」(${G.name})\n${sub}\n${oshiTxt}${MODS.length?'神の一手を'+MODS.length+'回使った。\n':''}銀河コード: ${resultCode()}`;
   {const xb=document.getElementById('xBtn');if(xb){let xt;
     if(OSHI!=null&&ps[OSHI]){const p=ps[OSHI],o=V(p).outcome,r=rarity(p);xt=`推しの星「${p.name}」は「${o.title}」${r.N>=8?`。${r.txt}の運命でした`:'でした'}🪐\n銀河は「${ti.replace(/[「」]/g,'')}」になりました。`}
     else xt=`「${ti.replace(/[「」]/g,'')}」を見届けました🪐 ${sub}`;
     xb.href=xHref(xt)}}
-  {const tc=document.getElementById('transferBox');if(tc)tc.value=transferCode()}
+  {const sb=document.getElementById('seedBox');if(sb&&PHASE==='result')sb.value=resultCode()}
   renderGantt(vs);
 }
 function renderGantt(vs){
@@ -1990,33 +1986,49 @@ function shareURL(){
 }
 function xHref(text){return 'https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(shareURL())+'&hashtags='+encodeURIComponent('いきつくほし')}
 let SHARED=false;
-/* 続編への引き継ぎコード: 結果の再現に必要な情報をまとめた文字列 */
-function transferData(){
-  const d={ver:SIM_VER,g:GAL.seed,r:RARE};
-  if(OSHI!=null)d.o=OSHI;
-  if(MODS.length)d.m=MODS.map(x=>[x.k,x.p]);
-  const vs=Object.keys(GAL.variants||{}).filter(k=>GAL.variants[k]);if(vs.length)d.w=Object.fromEntries(vs.map(k=>[k,GAL.variants[k]]));
+/* 銀河コード: 結果画面では、推しの星・神の一手・世界線・にぎやかさ・計算の版まで含めた「結果まるごとのコード」になる
+   例) TRX01-R2-O1-MD1R0-W2X1-V1  (銀河-にぎやかさ-推し-神の一手-世界線-版) 。銀河だけのコードも今までどおり使える */
+const MK={seed:'S',water:'A',deflect:'D',impact:'I',moon:'M',res:'R'},MKR=Object.fromEntries(Object.entries(MK).map(([a,b])=>[b,a]));
+function resultCode(){
+  const p=[GAL.seed,'R'+RARE];
+  if(OSHI!=null)p.push('O'+OSHI);
+  if(MODS.length)p.push('M'+MODS.map(x=>MK[x.k]+x.p).join(''));
+  const vs=Object.keys(GAL.variants||{}).filter(k=>GAL.variants[k]);if(vs.length)p.push('W'+vs.map(k=>k+'X'+GAL.variants[k]).join('.'));
+  p.push('V'+SIM_VER);return p.join('-');
+}
+function parseCode(str){
+  const parts=String(str||'').toUpperCase().replace(/\s/g,'').split('-'),g=(parts[0]||'').replace(/[^A-Z0-9]/g,'').slice(0,8);
+  if(!g)return null;const d={g,full:false};
+  parts.slice(1).forEach(t=>{const c=t[0],v=t.slice(1);
+    if(c==='R'&&/^[012]$/.test(v))d.r=+v;
+    else if(c==='O'&&/^\d+$/.test(v))d.o=+v;
+    else if(c==='M')d.m=[...v.matchAll(/([SADIMR])(\d+)/g)].map(x=>({k:MKR[x[1]],p:+x[2]}));
+    else if(c==='W'){d.w={};v.split('.').forEach(z=>{const m=z.match(/^(\d+)X(\d+)$/);if(m)d.w[+m[1]]=+m[2]})}
+    else if(c==='V'&&/^\d+$/.test(v)){d.ver=+v;d.full=true}});
   return d;
 }
-function transferCode(){const j=JSON.stringify(transferData());let b;try{b=btoa(unescape(encodeURIComponent(j)))}catch(e){b=''}return 'IKH'+SIM_VER+'-'+b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
-function decodeTransfer(code){
-  const m=String(code).trim().match(/^IKH(\d+)-([A-Za-z0-9_-]+)$/);if(!m)return null;
-  try{let b=m[2].replace(/-/g,'+').replace(/_/g,'/');while(b.length%4)b+='=';return JSON.parse(decodeURIComponent(escape(atob(b))))}catch(e){return null}
+/* コードの状態を再現する。結果まるごとのコードなら結果画面を開く */
+function applyState(d,note){
+  if(d.ver&&d.ver!==SIM_VER){try{console.warn('このコードは版'+d.ver+'の計算で作られています(いまは版'+SIM_VER+')')}catch(e){}}
+  if(d.r!=null){RARE=d.r;const rs=document.getElementById('rare');if(rs)rs.value=String(d.r)}
+  run(d.g,d.w||{});
+  if(!d.full)return;
+  MODS=(d.m||[]).filter(x=>x.k&&GAL.planets[x.p]).slice(0,GOD_MAX);
+  OSHI=(d.o!=null&&GAL.planets[d.o])?d.o:null;
+  if(MODS.length)GAL=simulate(GAL.seed,GAL.variants,MODS);
+  SHARED=!!note;render();toResult(false);
+  const n=document.getElementById('sharedNote');if(n)n.hidden=!note;
 }
+function loadCode(str){const d=parseCode(str);if(d)applyState(d,false)}
 function loadShared(){
   let P;try{P=new URLSearchParams(location.search)}catch(e){return false}
   const g=P.get('g');if(!g)return false;
-  const ver=+(P.get('ver')||1);if(ver!==SIM_VER){try{console.warn('この共有リンクは版'+ver+'の計算で作られています(いまは版'+SIM_VER+')')}catch(e){}}
-  const r=P.get('r');if(r&&/^[012]$/.test(r)){RARE=+r;const rs=document.getElementById('rare');if(rs)rs.value=r}
-  const vv={};(P.get('v')||'').split('-').forEach(t=>{const m=t.match(/^(\d+)x(\d+)$/);if(m)vv[+m[1]]=+m[2]});
-  run(g,vv);
-  if(P.get('s')!=='1')return true;
-  const mods=[];(P.get('m')||'').split('-').forEach(t=>{const m=t.match(/^([a-z]+)(\d+)$/);if(m&&GODS.some(x=>x.k===m[1])&&mods.length<GOD_MAX)mods.push({k:m[1],p:+m[2]})});
-  MODS=mods.filter(x=>GAL.planets[x.p]);
-  const o=P.get('o');OSHI=(o!=null&&GAL.planets[+o])?+o:null;
-  if(MODS.length)GAL=simulate(GAL.seed,GAL.variants,MODS);
-  SHARED=true;render();toResult(false);
-  const n=document.getElementById('sharedNote');if(n)n.hidden=false;
+  const d={g,full:P.get('s')==='1',ver:+(P.get('ver')||1)};
+  const r=P.get('r');if(r&&/^[012]$/.test(r))d.r=+r;
+  const o=P.get('o');if(o!=null&&/^\d+$/.test(o))d.o=+o;
+  d.m=[];(P.get('m')||'').split('-').forEach(t=>{const m=t.match(/^([a-z]+)(\d+)$/);if(m&&GODS.some(x=>x.k===m[1]))d.m.push({k:m[1],p:+m[2]})});
+  d.w={};(P.get('v')||'').split('-').forEach(t=>{const m=t.match(/^(\d+)x(\d+)$/);if(m)d.w[+m[1]]=+m[2]});
+  applyState(d,true);
   try{history.replaceState(null,'',location.pathname)}catch(e){}
   return true;
 }
@@ -2099,11 +2111,10 @@ try{const r=localStorage.getItem('hoshiboshi.rare');if(r!==null&&/^[012]$/.test(
 $('#rare').value=String(RARE);
 $('#rare').addEventListener('change',()=>{RARE=+$('#rare').value;try{localStorage.setItem('hoshiboshi.rare',String(RARE))}catch(e){}run(GAL.seed)});
 $('#newBtn').addEventListener('click',()=>run(rndSeed()));
-$('#goBtn').addEventListener('click',()=>run($('#seedBox').value));
-$('#seedBox').addEventListener('keydown',e=>{if(e.key==='Enter')run($('#seedBox').value)});
+$('#goBtn').addEventListener('click',()=>loadCode($('#seedBox').value));
+$('#seedBox').addEventListener('keydown',e=>{if(e.key==='Enter')loadCode($('#seedBox').value)});
 $('#againBtn').addEventListener('click',()=>startWatch());
 $('#selfBtn').addEventListener('click',()=>run(GAL.seed));
-$('#transferCopy').addEventListener('click',()=>{const b=$('#transferCopy'),box=$('#transferBox');box.value=transferCode();const ok=()=>{b.textContent='コピーしました';setTimeout(()=>{b.textContent='コードをコピー'},1600)};try{navigator.clipboard.writeText(box.value).then(ok,()=>{box.select();b.textContent='選択しました'})}catch(e){box.select();b.textContent='選択しました'}});
 $('#nextBtn').addEventListener('click',()=>run(rndSeed()));
 $('#shareBtn').addEventListener('click',()=>{const b=$('#shareBtn'),t=SHARE.replace(/\\n/g,'\n');const ok=()=>{b.textContent='コピーしました';setTimeout(()=>{b.textContent='結果をコピー'},1600)};try{navigator.clipboard.writeText(t).then(ok,()=>{b.textContent='コピーできませんでした'})}catch(e){b.textContent='コピーできませんでした'}});
 $('#futureBox').addEventListener('change',e=>{FUTURE=e.target.checked;render()});
@@ -2126,7 +2137,7 @@ $('#speed').addEventListener('change',showEta);
 $('#copyBtn').addEventListener('click',()=>{
   const b=$('#copyBtn'),box=$('#seedBox');
   const done=()=>{b.textContent='コピーしました';setTimeout(()=>{b.textContent='コードをコピー'},1600)};
-  try{navigator.clipboard.writeText(GAL.seed).then(done,()=>{box.select();b.textContent='選択しました'})}catch(e){box.select();b.textContent='選択しました'}
+  try{navigator.clipboard.writeText(box.value).then(done,()=>{box.select();b.textContent='選択しました'})}catch(e){box.select();b.textContent='選択しました'}
 });
 $('#glossList').innerHTML=Object.keys(GLOSS).map(k=>`<dt>${k}</dt><dd>${GLOSS[k]}</dd>`).join('');
 renderCatalog();
