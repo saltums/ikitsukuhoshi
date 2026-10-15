@@ -263,6 +263,7 @@ section.mapsec{display:flex;flex-direction:column}
 .colL,.colR{display:contents}
 .mapsec>.stagebar{order:0}#mapBox{order:1}.mapsec .mprog{order:2}#oshiLive{order:3}#oshiRow{order:4}.xbtn{background:#000;color:#fff;border-color:#3a3a3a;text-decoration:none;display:inline-flex;align-items:center;gap:6px}.xbtn:hover{background:#111}
 .sharednote{padding:14px 16px;border:1px solid #ffd073;border-radius:12px;background:var(--panel);display:flex;flex-direction:column;gap:10px}.sharednote[hidden]{display:none}
+.transfer .trow{display:flex;gap:8px;margin-top:8px}.transfer input{flex:1;min-width:0;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:12px/1.4 ui-monospace,monospace}
 .oshi-why{order:5}#banner{order:6}#era{order:7}#score{order:8}.legend2{order:9}#tnote{order:10}.mapsec details.set{order:11}
 @media (min-width:1000px){
   .wrap{max-width:1240px}
@@ -438,6 +439,10 @@ details[open] summary::after{content:"－"}
     <nav class="jump" id="jump" aria-label="星へジャンプ"></nav>
     <div class="stats" id="stats"></div>
     <details class="more2"><summary>星ごとの時間軸</summary><div class="gantt" id="gantt" aria-label="星ごとの時間軸"></div></details>
+    <details class="more2 transfer"><summary>この結果を続編に引き継ぐ</summary>
+      <p class="pnote">続編では、気に入った文明が生まれてから途絶えるまでを、もっと近くから追いかけられる予定です。このコードを続編に貼ると、同じ銀河・同じ推し・同じ神の一手の結果から始められます。</p>
+      <div class="trow"><input id="transferBox" readonly aria-label="引き継ぎコード"><button class="btn small" id="transferCopy" type="button">コードをコピー</button></div>
+    </details>
     <div class="again"><button class="btn primary" id="againBtn" type="button">↻ もう一度見る</button><button class="btn" id="nextBtn" type="button">新しい銀河へ</button><a class="btn xbtn" id="xBtn" href="#" target="_blank" rel="noopener">Xでポスト</a><button class="btn small" id="shareBtn" type="button">結果をコピー</button></div>
   </section>
 
@@ -708,6 +713,8 @@ function drawGenome(cv,g){
    シミュレーション本体
    時間はすべて「ビッグバンからの年数」。観測は139億年で終わる。
    ===================================================== */
+/* シミュレーションの版。結果の再現に使うので、確率や出来事を変えたら必ず上げ、古い版の計算は engine/ に残す */
+const SIM_VER=1;
 let RARE=1;const LIFEK=[.4,.6,1],STALLP=[.8,.35,0];
 const T_END=4e10; /* 計算上の地平線。実際の観測時点は tObs */
 const SYL1=["ヴェ","キー","ゼ","オル","ミ","タ","ネ","ク","ロ","ハ","ソ","ユ","ア","エ","ラ","ベ","ド","シ","フィ","グ"];
@@ -1681,6 +1688,7 @@ function renderDigest(){
     if(OSHI!=null&&ps[OSHI]){const p=ps[OSHI],o=V(p).outcome,r=rarity(p);xt=`推しの星「${p.name}」は「${o.title}」${r.N>=8?`。${r.txt}の運命でした`:'でした'}🪐\n銀河は「${ti.replace(/[「」]/g,'')}」になりました。`}
     else xt=`「${ti.replace(/[「」]/g,'')}」を見届けました🪐 ${sub}`;
     xb.href=xHref(xt)}}
+  {const tc=document.getElementById('transferBox');if(tc)tc.value=transferCode()}
   renderGantt(vs);
 }
 function renderGantt(vs){
@@ -1973,7 +1981,7 @@ function updateOshiLive(t){
 function toTop(){const go=()=>{try{window.scrollTo({top:0,left:0,behavior:'auto'})}catch(e){window.scrollTo(0,0)}document.documentElement.scrollTop=0;document.body.scrollTop=0};go();requestAnimationFrame(()=>{go();setTimeout(go,60)})}
 const GAME_URL='https://saltums.github.io/ikitsukuhoshi/';
 function shareURL(){
-  const q=['s=1','g='+GAL.seed,'r='+RARE];
+  const q=['s=1','ver='+SIM_VER,'g='+GAL.seed,'r='+RARE];
   if(OSHI!=null)q.push('o='+OSHI);
   if(MODS.length)q.push('m='+MODS.map(x=>x.k+x.p).join('-'));
   const vs=Object.keys(GAL.variants||{}).filter(k=>GAL.variants[k]);if(vs.length)q.push('v='+vs.map(k=>k+'x'+GAL.variants[k]).join('-'));
@@ -1982,9 +1990,23 @@ function shareURL(){
 }
 function xHref(text){return 'https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(shareURL())+'&hashtags='+encodeURIComponent('いきつくほし')}
 let SHARED=false;
+/* 続編への引き継ぎコード: 結果の再現に必要な情報をまとめた文字列 */
+function transferData(){
+  const d={ver:SIM_VER,g:GAL.seed,r:RARE};
+  if(OSHI!=null)d.o=OSHI;
+  if(MODS.length)d.m=MODS.map(x=>[x.k,x.p]);
+  const vs=Object.keys(GAL.variants||{}).filter(k=>GAL.variants[k]);if(vs.length)d.w=Object.fromEntries(vs.map(k=>[k,GAL.variants[k]]));
+  return d;
+}
+function transferCode(){const j=JSON.stringify(transferData());let b;try{b=btoa(unescape(encodeURIComponent(j)))}catch(e){b=''}return 'IKH'+SIM_VER+'-'+b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function decodeTransfer(code){
+  const m=String(code).trim().match(/^IKH(\d+)-([A-Za-z0-9_-]+)$/);if(!m)return null;
+  try{let b=m[2].replace(/-/g,'+').replace(/_/g,'/');while(b.length%4)b+='=';return JSON.parse(decodeURIComponent(escape(atob(b))))}catch(e){return null}
+}
 function loadShared(){
   let P;try{P=new URLSearchParams(location.search)}catch(e){return false}
   const g=P.get('g');if(!g)return false;
+  const ver=+(P.get('ver')||1);if(ver!==SIM_VER){try{console.warn('この共有リンクは版'+ver+'の計算で作られています(いまは版'+SIM_VER+')')}catch(e){}}
   const r=P.get('r');if(r&&/^[012]$/.test(r)){RARE=+r;const rs=document.getElementById('rare');if(rs)rs.value=r}
   const vv={};(P.get('v')||'').split('-').forEach(t=>{const m=t.match(/^(\d+)x(\d+)$/);if(m)vv[+m[1]]=+m[2]});
   run(g,vv);
@@ -2081,6 +2103,7 @@ $('#goBtn').addEventListener('click',()=>run($('#seedBox').value));
 $('#seedBox').addEventListener('keydown',e=>{if(e.key==='Enter')run($('#seedBox').value)});
 $('#againBtn').addEventListener('click',()=>startWatch());
 $('#selfBtn').addEventListener('click',()=>run(GAL.seed));
+$('#transferCopy').addEventListener('click',()=>{const b=$('#transferCopy'),box=$('#transferBox');box.value=transferCode();const ok=()=>{b.textContent='コピーしました';setTimeout(()=>{b.textContent='コードをコピー'},1600)};try{navigator.clipboard.writeText(box.value).then(ok,()=>{box.select();b.textContent='選択しました'})}catch(e){box.select();b.textContent='選択しました'}});
 $('#nextBtn').addEventListener('click',()=>run(rndSeed()));
 $('#shareBtn').addEventListener('click',()=>{const b=$('#shareBtn'),t=SHARE.replace(/\\n/g,'\n');const ok=()=>{b.textContent='コピーしました';setTimeout(()=>{b.textContent='結果をコピー'},1600)};try{navigator.clipboard.writeText(t).then(ok,()=>{b.textContent='コピーできませんでした'})}catch(e){b.textContent='コピーできませんでした'}});
 $('#futureBox').addEventListener('change',e=>{FUTURE=e.target.checked;render()});
