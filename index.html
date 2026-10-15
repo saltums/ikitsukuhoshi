@@ -256,6 +256,7 @@ body[data-ph="watch"] .stagebar{gap:8px}
 section.mapsec{display:flex;flex-direction:column}
 .colL,.colR{display:contents}
 .mapsec>.stagebar{order:0}#mapBox{order:1}.mapsec .mprog{order:2}#oshiLive{order:3}#oshiRow{order:4}.xbtn{background:#000;color:#fff;border-color:#3a3a3a;text-decoration:none;display:inline-flex;align-items:center;gap:6px}.xbtn:hover{background:#111}
+.sharednote{padding:14px 16px;border:1px solid #ffd073;border-radius:12px;background:var(--panel);display:flex;flex-direction:column;gap:10px}.sharednote[hidden]{display:none}
 .oshi-why{order:5}#banner{order:6}#era{order:7}#score{order:8}.legend2{order:9}#tnote{order:10}.mapsec details.set{order:11}
 @media (min-width:1000px){
   .wrap{max-width:1240px}
@@ -422,6 +423,7 @@ details[open] summary::after{content:"－"}
   
 
   <section class="digest" id="digestSec" data-only="result" aria-label="観測の要約">
+    <div class="sharednote" id="sharedNote" hidden><p>友達が共有した観測結果です。同じ銀河を、自分でも観測できます。</p><button class="btn primary" id="selfBtn" type="button">▶ この銀河を自分で観測する</button></div>
     <p class="eyebrow">この銀河の呼び名</p>
     <p class="headline" id="headline"></p>
     <div id="oshiResult"></div>
@@ -1665,7 +1667,7 @@ function renderDigest(){
   let oshiTxt='';
   if(OSHI!=null&&ps[OSHI]){
     const p=ps[OSHI],v=V(p),o=v.outcome,vd={thriving:'推しは、いまも生き延びている。',ascended:'推しは、高い存在へ昇華した。',allied:'推しは、異星の仲間と共に生きている。',ruins:'推しは衰えたが、種は残った。',evolving:'推しはまだ進化の途中にいる。',extinct:'推しは滅んだ。それでも、この記録は残る。',barren:'推しの星に、命は生まれなかった。'}[o.kind];
-    $('#oshiResult').innerHTML=`<div class="oshi-card"><div class="tile">${v.finalG?spr(v.finalG):plc(p)}</div><div><p class="eyebrow">あなたの推し ★ ${OSHI+1}番 ${p.name}</p><h3>${o.title}</h3><p>${gl(o.text)}</p><p class="verdict">${vd}</p><p class="rare">${p.type.jp}が、この運命にたどり着く確率 <b>${rarity(p).txt}</b> ・ ${rarity(p).tier}</p>${v.finalG?`<button type="button" class="btn small pbtn" data-prof="${p.id}">この種族をもっと知る・共有する</button>`:''}</div></div>`;
+    $('#oshiResult').innerHTML=`<div class="oshi-card"><div class="tile">${v.finalG?spr(v.finalG):plc(p)}</div><div><p class="eyebrow">${SHARED?'共有した人の推し':'あなたの推し'} ★ ${OSHI+1}番 ${p.name}</p><h3>${o.title}</h3><p>${gl(o.text)}</p><p class="verdict">${vd}</p><p class="rare">${p.type.jp}が、この運命にたどり着く確率 <b>${rarity(p).txt}</b> ・ ${rarity(p).tier}</p>${v.finalG?`<button type="button" class="btn small pbtn" data-prof="${p.id}">この種族をもっと知る・共有する</button>`:''}</div></div>`;
     oshiTxt=`推し: ${p.name}は「${o.title}」(${rarity(p).txt}の運命)。\n`;
   }else $('#oshiResult').innerHTML='';
   SHARE=`いきつくほし\n「${ti.replace(/[「」]/g,'')}」(${G.name})\n${sub}\n${oshiTxt}${MODS.length?'神の一手を'+MODS.length+'回使った。\n':''}銀河コード: ${G.seed}`;
@@ -1964,7 +1966,31 @@ function updateOshiLive(t){
 }
 function toTop(){const go=()=>{try{window.scrollTo({top:0,left:0,behavior:'auto'})}catch(e){window.scrollTo(0,0)}document.documentElement.scrollTop=0;document.body.scrollTop=0};go();requestAnimationFrame(()=>{go();setTimeout(go,60)})}
 const GAME_URL='https://saltums.github.io/ikitsukuhoshi/';
-function xHref(text){return 'https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(GAME_URL+'?g='+GAL.seed)+'&hashtags='+encodeURIComponent('いきつくほし')}
+function shareURL(){
+  const q=['s=1','g='+GAL.seed,'r='+RARE];
+  if(OSHI!=null)q.push('o='+OSHI);
+  if(MODS.length)q.push('m='+MODS.map(x=>x.k+x.p).join('-'));
+  const vs=Object.keys(GAL.variants||{}).filter(k=>GAL.variants[k]);if(vs.length)q.push('v='+vs.map(k=>k+'x'+GAL.variants[k]).join('-'));
+  return GAME_URL+'?'+q.join('&');
+}
+function xHref(text){return 'https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(shareURL())+'&hashtags='+encodeURIComponent('いきつくほし')}
+let SHARED=false;
+function loadShared(){
+  let P;try{P=new URLSearchParams(location.search)}catch(e){return false}
+  const g=P.get('g');if(!g)return false;
+  const r=P.get('r');if(r&&/^[012]$/.test(r)){RARE=+r;const rs=document.getElementById('rare');if(rs)rs.value=r}
+  const vv={};(P.get('v')||'').split('-').forEach(t=>{const m=t.match(/^(\d+)x(\d+)$/);if(m)vv[+m[1]]=+m[2]});
+  run(g,vv);
+  if(P.get('s')!=='1')return true;
+  const mods=[];(P.get('m')||'').split('-').forEach(t=>{const m=t.match(/^([a-z]+)(\d+)$/);if(m&&GODS.some(x=>x.k===m[1])&&mods.length<GOD_MAX)mods.push({k:m[1],p:+m[2]})});
+  MODS=mods.filter(x=>GAL.planets[x.p]);
+  const o=P.get('o');OSHI=(o!=null&&GAL.planets[+o])?+o:null;
+  if(MODS.length)GAL=simulate(GAL.seed,GAL.variants,MODS);
+  SHARED=true;render();toResult(false);
+  const n=document.getElementById('sharedNote');if(n)n.hidden=false;
+  try{history.replaceState(null,'',location.pathname)}catch(e){}
+  return true;
+}
 function setPhase(p){
   PHASE=p;document.body.dataset.ph=p;
   const fd=document.getElementById('feedDet');if(fd)fd.open=(p==='watch');
@@ -2004,7 +2030,7 @@ function render(){
 }
 function run(seed,variants){
   seed=(seed||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8)||rndSeed();
-  if(PROF)closeProfile();MODS=[];GSEL=null;OSHI=null;OLIVE_KEY=null;{const ol=document.getElementById('oshiLive');if(ol){ol.innerHTML='';ol.hidden=true}}setPhase('start');GAL=simulate(seed,variants||{});render();toTop();saveHist(seed);
+  if(PROF)closeProfile();SHARED=false;MODS=[];GSEL=null;OSHI=null;OLIVE_KEY=null;{const sn=document.getElementById('sharedNote');if(sn)sn.hidden=true}{const ol=document.getElementById('oshiLive');if(ol){ol.innerHTML='';ol.hidden=true}}setPhase('start');GAL=simulate(seed,variants||{});render();toTop();saveHist(seed);
 }
 function saveHist(seed){
   try{
@@ -2047,6 +2073,7 @@ $('#newBtn').addEventListener('click',()=>run(rndSeed()));
 $('#goBtn').addEventListener('click',()=>run($('#seedBox').value));
 $('#seedBox').addEventListener('keydown',e=>{if(e.key==='Enter')run($('#seedBox').value)});
 $('#againBtn').addEventListener('click',()=>startWatch());
+$('#selfBtn').addEventListener('click',()=>run(GAL.seed));
 $('#nextBtn').addEventListener('click',()=>run(rndSeed()));
 $('#shareBtn').addEventListener('click',()=>{const b=$('#shareBtn'),t=SHARE.replace(/\\n/g,'\n');const ok=()=>{b.textContent='コピーしました';setTimeout(()=>{b.textContent='結果をコピー'},1600)};try{navigator.clipboard.writeText(t).then(ok,()=>{b.textContent='コピーできませんでした'})}catch(e){b.textContent='コピーできませんでした'}});
 $('#futureBox').addEventListener('change',e=>{FUTURE=e.target.checked;render()});
@@ -2073,7 +2100,7 @@ $('#copyBtn').addEventListener('click',()=>{
 });
 $('#glossList').innerHTML=Object.keys(GLOSS).map(k=>`<dt>${k}</dt><dd>${GLOSS[k]}</dd>`).join('');
 renderCatalog();
-{let qg=null;try{qg=new URLSearchParams(location.search).get('g')}catch(e){}run(qg||rndSeed())}setPhase('title');
+if(!loadShared()){run(rndSeed());setPhase('title')}else if(PHASE==='start'){setPhase('title')}
 $('#enterBtn').addEventListener('click',()=>{setPhase('start');toTop()});
 
 </script>
