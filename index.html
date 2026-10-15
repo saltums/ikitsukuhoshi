@@ -363,8 +363,8 @@ details[open] summary::after{content:"－"}
 
   <section aria-label="銀河マップ" data-only="start watch result">
     <div class="stagebar" data-only="start watch">
-      <button class="btn primary big" id="watchBtn" type="button">観測を始める</button>
-      <button class="btn small" id="skipBtn" type="button" data-only="watch">結果へスキップ</button>
+      <button class="btn primary big" id="watchBtn" type="button">▶ 観測を始める</button>
+      <button class="btn small" id="skipBtn" type="button" data-only="watch">▶▶ 結果へスキップ</button>
       <button class="btn small" id="newBtn" type="button" data-only="start">別の銀河にする</button>
       <button class="btn small" id="dailyBtn" type="button" data-only="start">今日の銀河</button>
       <label class="spd" id="spdBox"><span class="lfull">かける時間</span><span class="lshort">速さ</span><select id="speed"><option value="120">はやい(最長2分)</option><option value="300" selected>ふつう(最長5分)</option><option value="900">じっくり(最長15分)</option></select></label>
@@ -409,7 +409,7 @@ details[open] summary::after{content:"－"}
     <nav class="jump" id="jump" aria-label="星へジャンプ"></nav>
     <div class="stats" id="stats"></div>
     <details class="more2"><summary>星ごとの時間軸</summary><div class="gantt" id="gantt" aria-label="星ごとの時間軸"></div></details>
-    <div class="again"><button class="btn primary" id="againBtn" type="button">もう一度見る</button><button class="btn" id="nextBtn" type="button">新しい銀河へ</button><button class="btn small" id="shareBtn" type="button">結果をコピー</button></div>
+    <div class="again"><button class="btn primary" id="againBtn" type="button">↻ もう一度見る</button><button class="btn" id="nextBtn" type="button">新しい銀河へ</button><button class="btn small" id="shareBtn" type="button">結果をコピー</button></div>
   </section>
 
   <section aria-label="観測ログ" data-only="watch result">
@@ -1746,7 +1746,7 @@ function stopTimers(){if(TIMER){clearTimeout(TIMER);TIMER=null}cancelAnimationFr
 function resetFeed(){
   ASK=null;hideAsk();stopTimers();WATCH=false;PAUSED=false;document.body.classList.remove('watching');
   $('#feedList').innerHTML='';$('#feedEmpty').hidden=false;FEEDI=0;buildFeed();showEta();
-  $('#watchBtn').textContent='観測を始める';$('#mprogBar').style.width='0%';
+  $('#watchBtn').textContent='▶ 観測を始める';$('#mprogBar').style.width='0%';
   setClock(GAL.tObs);$('#mphase').textContent='観測時点';applyMarkers(-1);
   idleBanner('「観測を始める」を押すと、ビッグバンから宇宙暦が進み、星が生まれ、命が宿り、文明が終わっていく様子を早送りで見られます。');
 }
@@ -1761,7 +1761,7 @@ function startWatch(){
   const auto=autoOshi();
   setPhase('watch');ASKN=0;OLIVE_KEY=null;updateOshiLive(-1);ASK=null;ASKED={};GRNG=mkRng(hashStr(GAL.seed+'#ask'));stopTimers();WATCH=true;PAUSED=false;document.body.classList.add('watching');
   $('#feedList').innerHTML='';$('#feedEmpty').hidden=true;FEEDI=0;buildFeed();showEta();applyMarkers(-1);
-  $('#watchBtn').textContent='一時停止';$('#mprogBar').style.width='0%';
+  $('#watchBtn').textContent='❚❚ 一時停止';$('#mprogBar').style.width='0%';
   $('#mapBox').scrollIntoView({block:'start',behavior:'auto'});
   idleBanner(auto?`推しが決まっていなかったので、${OSHI+1}番の${GAL.planets[OSHI].name}を見守ることにした。宇宙が生まれた。ここから、星々が生まれていく。`:'宇宙が生まれた。ここから、星々が生まれていく。');$('#mphase').textContent='ビッグバン';
   const first=FEED.length?FEED[0].e.t:GAL.tObs;
@@ -1849,8 +1849,8 @@ function playStep(){
 function finishWatch(){toResult(true)}
 function togglePause(){
   if(!WATCH||ASK)return;
-  if(PAUSED){PAUSED=false;$('#watchBtn').textContent='一時停止';playStep()}
-  else{PAUSED=true;stopTimers();$('#watchBtn').textContent='つづきを見る'}
+  if(PAUSED){PAUSED=false;$('#watchBtn').textContent='❚❚ 一時停止';playStep()}
+  else{PAUSED=true;stopTimers();$('#watchBtn').textContent='▶ つづきを見る'}
 }
 function skipWatch(){toResult(false)}
 
@@ -1927,7 +1927,7 @@ function showResultState(){
 }
 function toResult(smooth){
   ASK=null;hideAsk();stopTimers();WATCH=false;PAUSED=false;document.body.classList.remove('watching');
-  setPhase('result');drawMap(GAL,POS);renderDigest();renderPlanets();paintAll($('#digestSec'));paintAll($('#planets'));showResultState();$('#watchBtn').textContent='観測を始める';
+  setPhase('result');drawMap(GAL,POS);renderDigest();renderPlanets();paintAll($('#digestSec'));paintAll($('#planets'));showResultState();$('#watchBtn').textContent='▶ 観測を始める';
   const d=document.getElementById('digestSec');
   if(d)requestAnimationFrame(()=>d.scrollIntoView({block:'start',behavior:smooth?'smooth':'auto'}));
 }
