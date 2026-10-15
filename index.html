@@ -255,7 +255,8 @@ body[data-ph="watch"] .stagebar{gap:8px}
 /* 画面の幅で並べ方を変える: スマホは縦一列、パソコンはマップの右に情報 */
 section.mapsec{display:flex;flex-direction:column}
 .colL,.colR{display:contents}
-.mapsec>.stagebar{order:0}#mapBox{order:1}.mapsec .mprog{order:2}#oshiLive{order:3}#oshiRow{order:4}.oshi-why{order:5}#banner{order:6}#era{order:7}#score{order:8}.legend2{order:9}#tnote{order:10}.mapsec details.set{order:11}
+.mapsec>.stagebar{order:0}#mapBox{order:1}.mapsec .mprog{order:2}#oshiLive{order:3}#oshiRow{order:4}.xbtn{background:#000;color:#fff;border-color:#3a3a3a;text-decoration:none;display:inline-flex;align-items:center;gap:6px}.xbtn:hover{background:#111}
+.oshi-why{order:5}#banner{order:6}#era{order:7}#score{order:8}.legend2{order:9}#tnote{order:10}.mapsec details.set{order:11}
 @media (min-width:1000px){
   .wrap{max-width:1240px}
   .wrap>section:not(.mapsec),.wrap>details,.wrap>header,.wrap>.extras{width:100%;max-width:880px;margin-inline:auto}
@@ -429,7 +430,7 @@ details[open] summary::after{content:"－"}
     <nav class="jump" id="jump" aria-label="星へジャンプ"></nav>
     <div class="stats" id="stats"></div>
     <details class="more2"><summary>星ごとの時間軸</summary><div class="gantt" id="gantt" aria-label="星ごとの時間軸"></div></details>
-    <div class="again"><button class="btn primary" id="againBtn" type="button">↻ もう一度見る</button><button class="btn" id="nextBtn" type="button">新しい銀河へ</button><button class="btn small" id="shareBtn" type="button">結果をコピー</button></div>
+    <div class="again"><button class="btn primary" id="againBtn" type="button">↻ もう一度見る</button><button class="btn" id="nextBtn" type="button">新しい銀河へ</button><a class="btn xbtn" id="xBtn" href="#" target="_blank" rel="noopener">Xでポスト</a><button class="btn small" id="shareBtn" type="button">結果をコピー</button></div>
   </section>
 
   <section aria-label="観測ログ" data-only="watch result">
@@ -1444,7 +1445,7 @@ function renderProfile(){
   $('#profModal .mcard').innerHTML=`<div class="phead"><div class="tile">${spr(lin[lin.length-1].g)}</div><div><div class="bk">${p.id===OSHI?'<span class="chip oshi-chip">★推し</span> ':''}${idx}番 ${p.name} ・ ${p.type.jp}</div><h3 id="profTitle">${L.name}</h3>${L.mind?`<div class="bk">自称「${L.selfName}」</div>`:''}</div><button type="button" class="pclose" aria-label="閉じる">✕</button></div>
    <div class="ptabs" role="tablist">${profTab('base','暮らし')}${profTab('lang','ことば')}${profTab('culture','文化')}${profTab('hist','歴史')}</div>
    <div class="pbody">${body}</div>
-   <div class="pshare"><button type="button" class="btn primary" data-pshare="img">この種族を画像で共有</button><button type="button" class="btn small" data-pshare="txt">テキストをコピー</button></div><div id="shareOut"></div>`;
+   <div class="pshare"><button type="button" class="btn primary" data-pshare="img">この種族を画像で共有</button><a class="btn small xbtn" target="_blank" rel="noopener" href="${xHref(`推しの星「${p.name}」に生まれた「${L.name}」${L.mind?`。自分たちを「${L.selfName}」と呼び、「こんにちは」は「${L.words[0][1]}」と言う`:''}。結末は「${v.outcome.title}」でした🪐`)}">Xでポスト</a><button type="button" class="btn small" data-pshare="txt">テキストをコピー</button></div><div id="shareOut"></div>`;
   paintAll($('#profModal'));
 }
 
@@ -1668,6 +1669,10 @@ function renderDigest(){
     oshiTxt=`推し: ${p.name}は「${o.title}」(${rarity(p).txt}の運命)。\n`;
   }else $('#oshiResult').innerHTML='';
   SHARE=`いきつくほし\n「${ti.replace(/[「」]/g,'')}」(${G.name})\n${sub}\n${oshiTxt}${MODS.length?'神の一手を'+MODS.length+'回使った。\n':''}銀河コード: ${G.seed}`;
+  {const xb=document.getElementById('xBtn');if(xb){let xt;
+    if(OSHI!=null&&ps[OSHI]){const p=ps[OSHI],o=V(p).outcome,r=rarity(p);xt=`推しの星「${p.name}」は「${o.title}」${r.N>=8?`。${r.txt}の運命でした`:'でした'}🪐\n銀河は「${ti.replace(/[「」]/g,'')}」になりました。`}
+    else xt=`「${ti.replace(/[「」]/g,'')}」を見届けました🪐 ${sub}`;
+    xb.href=xHref(xt)}}
   renderGantt(vs);
 }
 function renderGantt(vs){
@@ -1958,6 +1963,8 @@ function updateOshiLive(t){
   if(cap){void el.offsetWidth;el.classList.add('pop')}
 }
 function toTop(){const go=()=>{try{window.scrollTo({top:0,left:0,behavior:'auto'})}catch(e){window.scrollTo(0,0)}document.documentElement.scrollTop=0;document.body.scrollTop=0};go();requestAnimationFrame(()=>{go();setTimeout(go,60)})}
+const GAME_URL='https://saltums.github.io/ikitsukuhoshi/';
+function xHref(text){return 'https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(GAME_URL+'?g='+GAL.seed)+'&hashtags='+encodeURIComponent('いきつくほし')}
 function setPhase(p){
   PHASE=p;document.body.dataset.ph=p;
   const fd=document.getElementById('feedDet');if(fd)fd.open=(p==='watch');
@@ -2066,7 +2073,7 @@ $('#copyBtn').addEventListener('click',()=>{
 });
 $('#glossList').innerHTML=Object.keys(GLOSS).map(k=>`<dt>${k}</dt><dd>${GLOSS[k]}</dd>`).join('');
 renderCatalog();
-run(rndSeed());setPhase('title');
+{let qg=null;try{qg=new URLSearchParams(location.search).get('g')}catch(e){}run(qg||rndSeed())}setPhase('title');
 $('#enterBtn').addEventListener('click',()=>{setPhase('start');toTop()});
 
 </script>
