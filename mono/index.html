@@ -2472,6 +2472,7 @@ function answerSkip(yes){
 }
 function finishWatch(){
   stopTimers();renderGens(ST.beats[ST.beats.length-1]);
+  if(DBG.force){applyOdd(DBG.force);showRoll(false);return}   // デバッグで決めた異色エンドは、記録に残さない
   const s=store();s.e=s.e||{};s.o=s.o||{};const firstOdd=ST.end.odd&&!s.o[ST.end.odd];s.e[ST.end.id]=1;if(ST.end.odd)s.o[ST.end.odd]=1;save(s);
   showRoll(firstOdd);
 }
@@ -2592,7 +2593,7 @@ function loadFromURL(){
 document.addEventListener('click',ev=>{
   const t=ev.target.closest('button,a');if(!t)return;
   if(t.id==='enterBtn'){startFromCode(randomCode())}
-  else if(t.id==='codeBtn'){const v=$('#codeIn').value.trim();if(v)startFromCode(v);else{const er=$('#codeErr');er.textContent='コードを入れてください。';er.hidden=false}}
+  else if(t.id==='codeBtn'){const v=$('#codeIn').value.trim();if(/^debug$/i.test(v)){openDebug();return}if(v)startFromCode(v);else{const er=$('#codeErr');er.textContent='コードを入れてください。';er.hidden=false}}
   else if(t.dataset.ci!=null){selectCand(+t.dataset.ci)}
   else if(t.id==='goBtn'){startWatch()}
   else if(t.id==='otherBtn'||t.id==='newBtn'){SHARED=false;startFromCode(randomCode())}
@@ -2616,7 +2617,49 @@ document.addEventListener('keydown',ev=>{
   if(ev.key==='Enter'&&ev.target&&ev.target.id==='codeIn'){$('#codeBtn').click()}
 });
 $('#profModal').addEventListener('click',ev=>{if(ev.target.id==='profModal')closeProf()});
+/* ---------- デバッグ(異色エンドの確認用) ----------
+   開き方: URLに ?debug を付ける、またはタイトル画面のコード欄に「debug」と入れて「このコードで始める」
+   ・どの異色エンドでも、今すぐエンドロールを流せる
+   ・「次のプレイで必ずこのエンドにする」で、普通に遊んだ最後にそのエンドが出る
+   ・デバッグで出したエンドは、見た記録に残さない */
+const DBG={on:false,force:null};
+function applyOdd(id){
+  const o=ODD.find(x=>x.id===id);if(!o||!ST)return;const fam=ST.fam;
+  ST.end.odd=id;ST.end.oddLines=o.l.map(t=>fillT(t,{B,S:ST.S,P:fam[fam.length-1],R:mkRng(hashStr(B.code+id)),fam,N:Math.floor(mkRng(hashStr(B.code+id+'n'))()*900+100)}));
+}
+function debugPlay(id){
+  if(!B)loadBase(randomCode());
+  if(!ST||PH!=='result'&&PH!=='watch'){if(CI==null)CI=0;HANDS=[];ST=story(B,CI,HANDS)}
+  stopTimers();IDX=ST.beats.length;applyOdd(id);
+  $('#dbgPanel').hidden=true;showRoll(false);
+}
+function openDebug(){
+  DBG.on=true;let el=$('#dbgPanel');
+  if(!el){el=document.createElement('div');el.id='dbgPanel';el.className='modal';el.setAttribute('role','dialog');el.setAttribute('aria-label','デバッグ');document.body.appendChild(el);
+    el.addEventListener('click',ev=>{if(ev.target===el)el.hidden=true})}
+  const cats=[...new Set(ODD.map(o=>o.cat))];
+  el.innerHTML=`<div class="mcard pcard" style="width:min(620px,100%)"><div class="phead" style="grid-template-columns:1fr auto"><h3>デバッグ: 異色エンド(${ODD.length}種類)</h3><button type="button" class="pclose" data-dbg="close" aria-label="閉じる">✕</button></div>
+   <p class="note">ボタンを押すと、今の物語(なければランダムな星)でそのエンドロールをすぐ流します。デバッグで出したエンドは、見た記録に残りません。</p>
+   <label class="note" style="display:flex;gap:8px;align-items:center;margin:10px 0"><span>次のプレイで必ず出す:</span><select id="dbgForce" class="spd" style="flex:1;min-height:36px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px"><option value="">(指定しない)</option>${ODD.map(o=>`<option value="${o.id}" ${DBG.force===o.id?'selected':''}>${o.cat} ・ ${o.jp}</option>`).join('')}</select></label>
+   ${cats.map(c=>`<p class="psub">${c}</p><div style="display:flex;flex-wrap:wrap;gap:6px">${ODD.filter(o=>o.cat===c).map(o=>`<button type="button" class="btn small" data-dbgodd="${o.id}" title="演出: ${o.s}">${o.jp}</button>`).join('')}</div>`).join('')}
+   <p class="psub">記録</p><div style="display:flex;flex-wrap:wrap;gap:6px"><button type="button" class="btn small" data-dbg="reset">見た記録を消す</button><button type="button" class="btn small" data-dbg="all">全部見たことにする</button></div></div>`;
+  el.hidden=false;
+  const f=$('#dbgForce');f.onchange=()=>{DBG.force=f.value||null;renderDbgBtn()};
+  renderDbgBtn();
+}
+function renderDbgBtn(){
+  let b=$('#dbgBtn');if(!b){b=document.createElement('button');b.id='dbgBtn';b.type='button';b.className='btn small';b.style.cssText='position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:45;opacity:.85';b.onclick=openDebug;document.body.appendChild(b)}
+  b.textContent='🛠 デバッグ'+(DBG.force?'(次: '+ODD.find(o=>o.id===DBG.force).jp+')':'');
+}
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest('[data-dbgodd],[data-dbg]');if(!t)return;
+  if(t.dataset.dbgodd)debugPlay(t.dataset.dbgodd);
+  else if(t.dataset.dbg==='close')$('#dbgPanel').hidden=true;
+  else if(t.dataset.dbg==='reset'){save({});$('#collectTitle').innerHTML=collectTxt();t.textContent='消しました'}
+  else if(t.dataset.dbg==='all'){const o={e:{},o:{}};Object.keys(ENDINGS).forEach(k=>o.e[k]=1);ODD.forEach(x=>o.o[x.id]=1);save(o);$('#collectTitle').innerHTML=collectTxt();t.textContent='全部見たことにしました'}
+});
 (function init(){
+  try{if(new URLSearchParams(location.search).has('debug')){DBG.on=true;renderDbgBtn()}}catch(e){}
   const sb=$('#sndBtn');if(!Music.on){sb.setAttribute('aria-pressed','false');sb.textContent='♪ 音なし'}
   $('#collectTitle').innerHTML=collectTxt();
   if(!loadFromURL())setPhase('title');
