@@ -251,9 +251,12 @@ details.extras>*:not(summary){margin:0!important}
 .fbox b{font-weight:500}.fbox p{margin-top:4px;font-size:13px;color:var(--dim)}
 .fbox.up{border-color:var(--good)}.fbox.down{border-color:var(--bad)}
 .stagebar{margin:0 0 12px}
-body[data-ph="watch"] #spdBox{position:fixed;z-index:40;top:max(10px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));margin:0;padding:6px 8px 6px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(22,25,54,.92);box-shadow:0 6px 18px rgba(0,0,0,.45);backdrop-filter:blur(4px)}
+#topCtl{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+#sndBtn[aria-pressed="false"]{opacity:.6}
+body[data-ph="watch"] #topCtl{position:fixed;z-index:40;top:max(10px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));margin:0;padding:6px 8px 6px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(22,25,54,.92);box-shadow:0 6px 18px rgba(0,0,0,.45);backdrop-filter:blur(4px)}
 .lshort{display:none}body[data-ph="watch"] #spdBox .lfull{display:none}body[data-ph="watch"] #spdBox .lshort{display:inline;font-size:12px}
-body[data-ph="watch"] #spdBox{gap:6px}
+body[data-ph="watch"] #spdBox{gap:6px;margin:0}
+body[data-ph="watch"] #sndBtn{padding:3px 10px;font-size:12px;min-height:0}
 body[data-ph="watch"] #spdBox select{padding:3px 6px;font-size:12px;min-height:0}
 body[data-ph="watch"] #watchBtn,body[data-ph="watch"] #skipBtn{padding:7px 14px;font-size:14px;min-height:0;line-height:1.3}
 body[data-ph="watch"] .stagebar{gap:8px}
@@ -392,7 +395,7 @@ details[open] summary::after{content:"－"}
       <button class="btn primary big" id="watchBtn" type="button">▶ 観測を始める</button>
       <button class="btn small" id="skipBtn" type="button" data-only="watch">▶▶ 結果へスキップ</button>
       <button class="btn small" id="newBtn" type="button" data-only="start">別の銀河にする</button>
-      <label class="spd" id="spdBox"><span>スピード</span><select id="speed"><option value="120">はやい(最長2分)</option><option value="300" selected>ふつう(最長5分)</option><option value="900">じっくり(最長15分)</option></select></label>
+      <div id="topCtl"><label class="spd" id="spdBox"><span>スピード</span><select id="speed"><option value="120">はやい(最長2分)</option><option value="300" selected>ふつう(最長5分)</option><option value="900">じっくり(最長15分)</option></select></label><button class="btn small" id="sndBtn" type="button" aria-pressed="true">♪ 音あり</button></div>
       <span class="spd" id="eta" data-only="start"></span>
     </div>
     <div class="colL">
@@ -1506,6 +1509,99 @@ function doShare(kind){
 }
 
 /* =====================================================
+   音楽(WebAudio)。観測の進み具合に合わせて音の層が重なっていく
+   0 低いドローン(ヴォー) → 1 うねる低音と風 → 2 鐘の粒 → 3 和音のパッド
+   → 4 鼓動のリズム → 5 高いきらめきと速いアルペジオ → 6 合唱のような厚い響き
+   ===================================================== */
+const Music=(()=>{
+  let ctx=null,master=null,rev=null,on=true,level=-1,timer=null,beatT=0,beatN=0,nextBell=0,layers=[];
+  try{on=localStorage.getItem('ikh.sound')!=='0'}catch(e){}
+  const TARGET=[.42,.3,.5,.2,.5,.16,.17];
+  const PENTA=[0,3,5,7,10];                       // A マイナーペンタトニック
+  const hz=(semi,base=220)=>base*Math.pow(2,semi/12);
+
+  function impulse(sec){
+    const n=Math.floor(ctx.sampleRate*sec),b=ctx.createBuffer(2,n,ctx.sampleRate);
+    for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2.6)}
+    return b;
+  }
+  function osc(type,f,det){const o=ctx.createOscillator();o.type=type;o.frequency.value=f;if(det)o.detune.value=det;o.start();return o}
+  function lfo(freq,depth,param){const l=osc('sine',freq),g=ctx.createGain();g.gain.value=depth;l.connect(g);g.connect(param);return l}
+  function layer(i){const g=ctx.createGain();g.gain.value=0;g.connect(master);const s=ctx.createGain();s.gain.value=.55;g.connect(s);s.connect(rev);layers[i]=g;return g}
+  function noiseBuf(sec){const n=Math.floor(ctx.sampleRate*sec),b=ctx.createBuffer(1,n,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;return b}
+
+  function build(){
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return false;
+    ctx=new AC();
+    master=ctx.createGain();master.gain.value=0;
+    const comp=ctx.createDynamicsCompressor();comp.threshold.value=-18;comp.ratio.value=3;
+    master.connect(comp);comp.connect(ctx.destination);
+    rev=ctx.createConvolver();rev.buffer=impulse(3.2);const rg=ctx.createGain();rg.gain.value=.5;rev.connect(rg);rg.connect(comp);
+    // 0: 低いドローン
+    {const g=layer(0),f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=150;f.Q.value=4;f.connect(g);
+     [['sawtooth',55,-6],['sawtooth',55,7],['sine',27.5,0]].forEach(([t,fr,d])=>osc(t,fr,d).connect(f));lfo(.05,70,f.frequency);}
+    // 1: うねる低音と風
+    {const g=layer(1),f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=420;f.connect(g);
+     [['triangle',82.41,-4],['triangle',110,5]].forEach(([t,fr,d])=>osc(t,fr,d).connect(f));
+     const n=ctx.createBufferSource();n.buffer=noiseBuf(4);n.loop=true;const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=500;bp.Q.value=.7;
+     const ng=ctx.createGain();ng.gain.value=.05;n.connect(bp);bp.connect(ng);ng.connect(g);n.start();lfo(.07,300,bp.frequency);lfo(.11,.03,ng.gain);}
+    // 2: 鐘の粒(スケジューラで鳴らす)
+    layer(2);
+    // 3: 和音のパッド
+    {const g=layer(3),f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=1100;f.connect(g);
+     [220,261.63,329.63,493.88].forEach((fr,i)=>{osc('triangle',fr,-5+i).connect(f);osc('sawtooth',fr/2,6-i).connect(f)});lfo(.03,500,f.frequency);}
+    // 4: 鼓動のリズム(スケジューラ)
+    layer(4);
+    // 5: 高いきらめき
+    {const g=layer(5),hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=1800;const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=6500;hp.connect(lp);lp.connect(g);
+     [880,1318.5,1760].forEach((fr,i)=>{osc('sawtooth',fr,-9+i*7).connect(hp)});const tr=ctx.createGain();tr.gain.value=1;lp.disconnect();lp.connect(tr);tr.connect(g);lfo(4.5,.35,tr.gain);}
+    // 6: 合唱のような厚い響き
+    {const g=layer(6),f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=2400;f.connect(g);
+     [220,329.63,440,523.25,659.25].forEach((fr,i)=>{[-14,0,13].forEach(d=>{const o=osc('sawtooth',fr,d+i);lfo(5+i*.3,6,o.detune);o.connect(f)})});}
+    timer=setInterval(tick,40);
+    return true;
+  }
+  function env(node,t,a,peak,dec){node.gain.cancelScheduledValues(t);node.gain.setValueAtTime(0,t);node.gain.linearRampToValueAtTime(peak,t+a);node.gain.exponentialRampToValueAtTime(.0001,t+a+dec)}
+  function bell(t,f,vol,dest){const o=ctx.createOscillator();o.type='sine';o.frequency.value=f;const o2=ctx.createOscillator();o2.type='triangle';o2.frequency.value=f*2.01;
+    const g=ctx.createGain();o.connect(g);const g2=ctx.createGain();g2.gain.value=.25;o2.connect(g2);g2.connect(g);g.connect(dest);env(g,t,.008,vol,2.4);o.start(t);o2.start(t);o.stop(t+2.6);o2.stop(t+2.6)}
+  function kick(t,dest,vol){const o=ctx.createOscillator();o.type='sine';o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(42,t+.16);const g=ctx.createGain();o.connect(g);g.connect(dest);env(g,t,.004,vol,.35);o.start(t);o.stop(t+.45)}
+  function bass(t,f,dest,vol){const o=ctx.createOscillator();o.type='sawtooth';o.frequency.value=f;const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=260;const g=ctx.createGain();o.connect(lp);lp.connect(g);g.connect(dest);env(g,t,.01,vol,.5);o.start(t);o.stop(t+.6)}
+  function hat(t,dest,vol){const n=ctx.createBufferSource();n.buffer=noiseBuf(.08);const hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=7000;const g=ctx.createGain();n.connect(hp);hp.connect(g);g.connect(dest);env(g,t,.002,vol,.05);n.start(t)}
+  function tick(){
+    if(!ctx||ctx.state!=='running'||level<0)return;
+    const now=ctx.currentTime;
+    if(level>=2&&now>=nextBell){const n=PENTA[Math.floor(Math.random()*5)]+12*Math.floor(Math.random()*2);bell(now+.02,hz(n,440),.18,layers[2]);nextBell=now+(level>=5?.9:1.6)+Math.random()*(level>=5?.8:2)}
+    if(level>=4){const spb=60/(level>=6?84:72);if(beatT<now)beatT=now+.05;
+      while(beatT<now+.2){const b=beatN%4;kick(beatT,layers[4],b===0?.9:.55);if(b===0||b===2)bass(beatT,b===0?55:41.2,layers[4],.5);
+        if(level>=5){const half=spb/2;[0,half].forEach((o,k)=>{const n=PENTA[(beatN*2+k)%5]+12;bell(beatT+o,hz(n,440),.07,layers[5])})}
+        if(level>=6){hat(beatT+spb/2,layers[6],.25);hat(beatT+spb*.75,layers[6],.12)}
+        beatT+=spb;beatN++}}
+  }
+  function setLevel(l,slow){
+    if(!ctx)return;l=Math.max(-1,Math.min(6,l));if(l===level&&!slow)return;level=l;
+    const t=ctx.currentTime;layers.forEach((g,i)=>{g.gain.cancelScheduledValues(t);g.gain.setTargetAtTime(i<=l?TARGET[i]:0,t,slow?3:1.6)});
+  }
+  function accent(kind){
+    if(!ctx||!on||ctx.state!=='running')return;const t=ctx.currentTime+.02;
+    if(kind==='end'){kick(t,master,.9);const n=ctx.createBufferSource();n.buffer=noiseBuf(1.5);const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(900,t);lp.frequency.exponentialRampToValueAtTime(80,t+1.4);const g=ctx.createGain();n.connect(lp);lp.connect(g);g.connect(master);env(g,t,.01,.25,1.4);n.start(t)}
+    else if(kind==='contact'||kind==='cosmic'||kind==='wonder'){const n=ctx.createBufferSource();n.buffer=noiseBuf(3);const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.Q.value=6;bp.frequency.setValueAtTime(200,t);bp.frequency.exponentialRampToValueAtTime(kind==='cosmic'?4200:2600,t+2.2);const g=ctx.createGain();n.connect(bp);bp.connect(g);g.connect(master);g.connect(rev);env(g,t,1.6,kind==='cosmic'?.35:.22,1.2);n.start(t)}
+    else if(kind==='mind'||kind==='life'){[0,7,12].forEach((s,i)=>bell(t+i*.12,hz(s,440),.16,master))}
+  }
+  return {
+    get on(){return on},
+    start(){ if(!on)return; if(!ctx&&!build())return; ctx.resume&&ctx.resume(); const t=ctx.currentTime;master.gain.cancelScheduledValues(t);master.gain.setTargetAtTime(.75,t,1.2); level=-1; setLevel(0); },
+    update(l){ if(ctx&&on)setLevel(l) },
+    accent,
+    pause(){ if(ctx&&ctx.state==='running')ctx.suspend() },
+    resume(){ if(ctx&&on&&ctx.state==='suspended')ctx.resume() },
+    finale(){ if(!ctx)return; setLevel(Math.min(level,1),true); const t=ctx.currentTime;master.gain.setTargetAtTime(.45,t,3) },
+    stop(){ if(!ctx)return; const t=ctx.currentTime;master.gain.cancelScheduledValues(t);master.gain.setTargetAtTime(0,t,.4);setTimeout(()=>{if(master.gain.value<.05)setLevel(-1)},1500) },
+    toggle(){ on=!on; try{localStorage.setItem('ikh.sound',on?'1':'0')}catch(e){} if(!on){if(ctx){const t=ctx.currentTime;master.gain.setTargetAtTime(0,t,.2)}} return on },
+    resumeAfterToggle(l){ if(!on)return; if(!ctx&&!build())return; ctx.resume&&ctx.resume(); const t=ctx.currentTime;master.gain.setTargetAtTime(.75,t,.6); level=-1; setLevel(l) }
+  };
+})();
+
+/* =====================================================
    画面
    ===================================================== */
 const $=s=>document.querySelector(s);
@@ -1821,7 +1917,7 @@ function autoOshi(){
   OSHI=i;GAL.planets.forEach(q=>{const m=document.getElementById('mk'+q.id);if(m)m.classList.toggle('is-oshi',q.id===OSHI)});return true;
 }
 function startWatch(){
-  SWPEND=false;SWDONE=false;
+  Music.start();SWPEND=false;SWDONE=false;
   const auto=autoOshi();
   setPhase('watch');ASKN=0;OLIVE_KEY=null;updateOshiLive(-1);ASK=null;ASKED={};GRNG=mkRng(hashStr(GAL.seed+'#ask'));stopTimers();WATCH=true;PAUSED=false;document.body.classList.add('watching');
   $('#feedList').innerHTML='';$('#feedEmpty').hidden=true;FEEDI=0;buildFeed();showEta();applyMarkers(-1);
@@ -1905,6 +2001,8 @@ function playStep(){
   const pk=FEED[FEEDI],off=godOffer(pk);if(off){showAsk(off);return}
   const it=FEED[FEEDI++],gap=Math.round(stepMs()*stepW(it)),next=FEED[FEEDI];
   applyMarkers(it.e.t);addFeed(it);showBanner(it);updateOshiLive(it.e.t);
+  Music.update(musicLevel(it.e.t));
+  if(it.e.kind==='end'&&it.p.civStart!=null)Music.accent('end');else if(['contact','cosmic','wonder'].includes(it.e.kind))Music.accent(it.e.kind);else if(it.e.kind==='mind'||(it.e.kind==='life'&&it.p.id===OSHI))Music.accent(it.e.kind);
   if(!SWDONE&&it.p.id===OSHI&&it.e.kind==='end'&&V(it.p).outcome.kind==='barren'&&GAL.planets.length>1)SWPEND=true;
   $('#mprogBar').style.width=(FEEDI/FEED.length*100)+'%';
   setClock(it.e.t);if(next)tweenClock(it.e.t,next.e.t,gap*.85);
@@ -1913,8 +2011,24 @@ function playStep(){
 function finishWatch(){toResult(true)}
 function togglePause(){
   if(!WATCH||ASK)return;
-  if(PAUSED){PAUSED=false;$('#watchBtn').textContent='❚❚ 一時停止';playStep()}
-  else{PAUSED=true;stopTimers();$('#watchBtn').textContent='▶ つづきを見る'}
+  if(PAUSED){PAUSED=false;$('#watchBtn').textContent='❚❚ 一時停止';Music.resume();playStep()}
+  else{PAUSED=true;stopTimers();$('#watchBtn').textContent='▶ つづきを見る';Music.pause()}
+}
+/* 音楽の盛り上がり: 銀河でいちばん進んでいる星の段階で決める。文明が終わると下がる */
+function musicLevel(t){
+  let l=0;
+  GAL.planets.forEach(p=>{
+    const v=V(p),lin=v.lineage.filter(x=>x.t<=t);if(!lin.length)return;
+    const ended=v.events.some(e=>e.kind==='end'&&e.t<=t),st=lin[lin.length-1].stage;
+    let pl=st>=1?2:1;
+    if(p.civStart!=null&&p.civStart<=t){
+      if(!ended){const cs=v.events.filter(e=>e.kind==='civ'&&e.t<=t).length;pl=cs>=5?6:cs>=4?5:cs>=2?4:3;
+        if(cs>=4&&v.events.some(e=>(e.kind==='contact'||e.kind==='cosmic')&&e.t<=t))pl=6}
+      else pl=Math.min(pl,2);
+    }
+    l=Math.max(l,pl);
+  });
+  return l;
 }
 function skipWatch(){toResult(false)}
 
@@ -2048,6 +2162,7 @@ function showResultState(){
   applyMarkers(1e99);setClock(GAL.tObs);$('#mprogBar').style.width='100%';$('#mphase').textContent='観測おわり';
 }
 function toResult(smooth){
+  Music.finale();
   ASK=null;hideAsk();stopTimers();WATCH=false;PAUSED=false;document.body.classList.remove('watching');
   setPhase('result');drawMap(GAL,POS);renderDigest();renderPlanets();paintAll($('#digestSec'));paintAll($('#planets'));showResultState();$('#watchBtn').textContent='▶ 観測を始める';
   const d=document.getElementById('digestSec');
@@ -2071,7 +2186,7 @@ function render(){
 }
 function run(seed,variants){
   seed=(seed||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8)||rndSeed();
-  if(PROF)closeProfile();SHARED=false;MODS=[];GSEL=null;OSHI=null;OLIVE_KEY=null;{const sn=document.getElementById('sharedNote');if(sn)sn.hidden=true}{const ol=document.getElementById('oshiLive');if(ol){ol.innerHTML='';ol.hidden=true}}setPhase('start');GAL=simulate(seed,variants||{});render();toTop();saveHist(seed);
+  Music.stop();if(PROF)closeProfile();SHARED=false;MODS=[];GSEL=null;OSHI=null;OLIVE_KEY=null;{const sn=document.getElementById('sharedNote');if(sn)sn.hidden=true}{const ol=document.getElementById('oshiLive');if(ol){ol.innerHTML='';ol.hidden=true}}setPhase('start');GAL=simulate(seed,variants||{});render();toTop();saveHist(seed);
 }
 function saveHist(seed){
   try{
@@ -2115,6 +2230,9 @@ $('#goBtn').addEventListener('click',()=>loadCode($('#seedBox').value));
 $('#seedBox').addEventListener('keydown',e=>{if(e.key==='Enter')loadCode($('#seedBox').value)});
 $('#againBtn').addEventListener('click',()=>startWatch());
 $('#selfBtn').addEventListener('click',()=>run(GAL.seed));
+$('#sndBtn').addEventListener('click',()=>{const on=Music.toggle(),b=$('#sndBtn');b.textContent=on?'♪ 音あり':'♪ 音なし';b.setAttribute('aria-pressed',String(on));
+  if(on&&WATCH&&!PAUSED)Music.resumeAfterToggle(musicLevel(FEEDI>0?FEED[FEEDI-1].e.t:0))});
+{const b=document.getElementById('sndBtn');if(b&&!Music.on){b.textContent='♪ 音なし';b.setAttribute('aria-pressed','false')}}
 $('#nextBtn').addEventListener('click',()=>run(rndSeed()));
 $('#shareBtn').addEventListener('click',()=>{const b=$('#shareBtn'),t=SHARE.replace(/\\n/g,'\n');const ok=()=>{b.textContent='コピーしました';setTimeout(()=>{b.textContent='結果をコピー'},1600)};try{navigator.clipboard.writeText(t).then(ok,()=>{b.textContent='コピーできませんでした'})}catch(e){b.textContent='コピーできませんでした'}});
 $('#futureBox').addEventListener('change',e=>{FUTURE=e.target.checked;render()});
