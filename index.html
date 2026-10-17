@@ -384,6 +384,19 @@ svg.rank{width:100%;height:auto;margin-top:8px;overflow:visible}svg.rank polylin
 .chart-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}.chart-list li{display:grid;grid-template-columns:4.6em minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;background:var(--panel2);font-size:13px}
 .chart-list li::before{display:none!important}.chart-list li{padding-left:8px!important}.chart-list li.me{outline:2px solid #ffd073}.chart-list .cr{font:400 14px var(--f-disp);text-align:right;color:#ffd073;font-variant-numeric:tabular-nums}.chart-list .cn b{font-weight:500}.chart-list .cn small{display:block;color:var(--dim);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chart-list .cs{text-align:right;font-size:12.5px;color:var(--dim)}.chart-list .cs em{display:block;font-style:normal;color:#ffd073}
+.evcard{display:flex;flex-direction:column;gap:12px}
+.evhead{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center}.evhead .tile{width:72px}.evname{font:400 clamp(24px,7vw,32px)/1.2 var(--f-disp);letter-spacing:.04em}.evmeta{font-size:13px;color:var(--dim)}
+.evtier{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}.evtier b{font:400 17px var(--f-disp)}.evtier .bar{height:10px;background:var(--panel2);border-radius:2px;overflow:hidden}.evtier .bar i{display:block;height:100%;background:#ffd073}
+.evend{background:#eef0f8;color:#14162b;padding:16px 18px;border-radius:4px}.evend .lab{color:#b8860b}.evend .big{font:400 clamp(22px,6.4vw,30px)/1.35 var(--f-disp);margin:6px 0}.evend .sm{font-size:13.5px;color:#3a3f6a}.evend abbr.gl{color:inherit}
+.evttl{border:3px solid #eef0f8;padding:14px 18px;border-radius:4px}.evttl .big{font:400 clamp(22px,6.4vw,30px)/1.35 var(--f-disp);margin:4px 0}.evttl .sm{font-size:14px;color:var(--dim)}
+.evcard .lab{font:400 13px var(--f-disp);letter-spacing:.14em;color:var(--dim)}
+.evscore{border:1px solid var(--line);background:var(--panel);padding:14px 16px;border-radius:6px}
+svg.radar{display:block;width:min(340px,100%);margin:4px auto 0}svg.radar .rg{fill:none;stroke:#3a4070;stroke-width:1}svg.radar .rv{fill:rgba(255,208,115,.72);stroke:#fff;stroke-width:2.5}svg.radar text{font:13px var(--f-body);fill:var(--fg)}svg.radar .ln{font-weight:700}svg.radar .lv{fill:#ffd073;font-family:var(--f-disp)}
+.tot{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:6px}.tot b{font:400 clamp(48px,14vw,64px)/1 var(--f-disp);letter-spacing:.02em}.tot span{font-size:18px;color:var(--dim)}.tot em{font:400 20px var(--f-disp);font-style:normal;color:#ffd073}
+.catch{margin-top:8px;font:500 16px/1.6 var(--f-body)}
+.evtags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.evtags span{padding:6px 10px;border:1px solid var(--line);border-radius:3px;font-size:13px;background:var(--panel2)}
+.evrare{margin-top:10px;font-size:13px;color:var(--dim)}.evrare b{font:400 16px var(--f-disp);color:#ffd073}
+.evbtns{display:flex;flex-wrap:wrap;gap:8px}
 </style>
 </head>
 <body>
@@ -1714,6 +1727,125 @@ function renderChart(){
 }
 
 /* =====================================================
+   推しの星の評価カード: 4つの軸(レア・ドラマ・繁栄・しぶとさ)と合計点、称号、キャッチコピー、タグ
+   計算済みの歴史を読むだけなので、銀河コードの結果は変わらない
+   ===================================================== */
+const EV_AXES=[['rare','レア'],['drama','ドラマ'],['tough','しぶとさ'],['glory','繁栄']];
+const EV_TIERS=[[320,'伝説','伝説の星'],[260,'名作','名作の星'],[200,'佳作','佳作の星'],[130,'並','ふつうの星'],[0,'静か','静かな星']];
+function clamp100(x){return Math.max(0,Math.min(100,Math.round(x)))}
+function evalOshi(p){
+  const v=V(p),o=v.outcome,k=o.kind,ev=v.events,G=GAL,end=FUTURE?T_END:G.tObs;
+  const lin=v.lineage,top=lin[lin.length-1],mind=lin.some(l=>l.stage>=4),r=rarity(p),C=chartCalc(),ch=C.by[p.id];
+  const dis=ev.filter(e=>e.kind==='disaster').length,cont=ev.filter(e=>e.kind==='contact').length,won=ev.filter(e=>e.kind==='wonder').length,cos=ev.filter(e=>e.kind==='cosmic').length;
+  const mods=MODS.filter(m=>m.p===p.id).length,variant=!!(G.variants&&G.variants[p.id]);
+  const kards=ev.filter(e=>e.kind==='civ').map(e=>+((String(e.text).match(/カルダシェフ尺度 ([\d.]+)/)||[])[1]||0)),kard=kards.length?Math.max(...kards):0;
+  const tLife=lin.length?lin[0].t:null,endEv=ev.filter(e=>e.kind==='end').pop();
+  const lifeEnd=k==='extinct'&&endEv?endEv.t:end;
+  const civDur=p.civ&&p.civStart!=null&&p.civStart<=end?Math.min(end,p.civ.end||end)-p.civStart:0;
+  const S={};
+  // レア: この運命にたどり着く確率(1/N)
+  S.rare=clamp100(100*Math.log10(Math.max(1,r.N))/Math.log10(3000));
+  // ドラマ: 災害・異星との出会い・名場面・銀河の大事件・神の一手・世界線・栄えてから崩れたか
+  S.drama=clamp100(9*Math.min(dis,5)+18*cont+16*won+12*cos+14*mods+(variant?12:0)+(k==='ruins'?22:k==='extinct'&&mind?26:0)+(lin.length>=5?8:0));
+  // 繁栄: たどり着いた段階(生き物の進み具合・文明の段階)と宇宙ヒットチャートの順位
+  const lv=(top?[5,15,30,45,60][Math.min(4,top.stage)]:0)+Math.min(40,kard*14)+(k==='allied'?8:0)+(k==='ascended'?12:0);
+  const rk=ch?100*(1-Math.log10(ch.rank)/4):0;
+  S.glory=clamp100(.7*lv+.3*rk+(mind?8:0));
+  // しぶとさ: 命が続いた長さ、災害を越えた数、最後まで生き残ったか、文明の長さ
+  const frac=tLife!=null?Math.max(0,(lifeEnd-tLife)/Math.max(1,end-(p.tForm||tLife))):0;
+  S.tough=clamp100(45*frac+7*Math.min(dis,5)+(['thriving','allied','ascended','evolving','ruins'].includes(k)?22:0)+Math.min(15,civDur/2e5));
+  if(k==='barren'){S.glory=0;S.tough=0;S.drama=clamp100(S.drama*.5)}
+  const total=S.rare+S.drama+S.tough+S.glory,tier=EV_TIERS.find(t=>total>=t[0]);
+  const ttl=evalTitle(p,k,S,total,mind,ch,mods,cont);
+  const tags=[];
+  if(ch&&ch.rank<=100)tags.push('頂点に立った');
+  if(mind)tags.push('知性に届いた');else if(lin.length)tags.push('知性に届かず');
+  if(kard>=.85)tags.push('宇宙へ出た');
+  if(cont)tags.push('異星と出会った');
+  if(k==='ruins'||variant)tags.push('大逆転');
+  if(mods)tags.push('神に救われた');
+  if(dis>=3)tags.push(`災害を${dis}回越えた`);
+  if(won)tags.push('名場面あり');
+  if(ch&&ch.tag&&['一発屋','ロングヒット','殿堂入り'].includes(ch.tag))tags.push(ch.tag);
+  if(civDur>0&&civDur<1e4)tags.push('はかない文明');
+  if(r.N>=300)tags.push(r.tier+'運命');
+  if(ev.filter(e=>e.major).length>=8)tags.push('出来事の多い星');
+  return {S,total,tier,ttl,tags:tags.slice(0,6),r,ch,mind,top,kard};
+}
+function evalTitle(p,k,S,total,mind,ch,mods,cont){
+  const T=(t,d,c)=>({t,d,c});
+  if(k==='barren')return T('沈黙の星','この星には、最後まで命が宿らなかった。','何も起きなかったことも、ひとつの物語だ。');
+  if(total>=330)return T('宇宙に名を刻んだ星','この星の歴史は、どこを切り取っても名場面だった。','星が生まれ、命が燃え、宇宙が覚えた。');
+  const top=Object.entries(S).sort((a,b)=>b[1]-a[1])[0][0];
+  if(k==='ascended')return T('高みへ昇った星','この星の者たちは、体を捨てて別の存在になった。','行き着いた先は、誰にも見えない場所だった。');
+  if(k==='allied')return T('手を結んだ星','遠い星の誰かと出会い、ともに生きる道を選んだ。','ひとりでは届かない場所へ、ふたりで行った。');
+  if(k==='extinct'&&mind)return T('燃え尽きた星','知性まで届きながら、最後は誰も残らなかった。','いちばん明るく燃えた星ほど、早く消える。');
+  if(k==='ruins')return T('灰から立つ星','文明は崩れた。それでも、命は次の芽を出した。','終わりは、次の始まりの別の呼び名だった。');
+  if(k==='extinct')return T('儚く散った星','命は芽吹いたが、宇宙の気まぐれに勝てなかった。','咲いた時間は短くても、咲いたことは消えない。');
+  if(k==='evolving')return top==='tough'?T('まだ夢の途中の星','知性にはまだ届かない。けれど、命はしぶとく続いている。','答えは、次の何億年のうちにある。'):T('のびしろの星','進化の途中で観測は終わった。この先は誰にも分からない。','物語は、ここから面白くなる。');
+  if(top==='glory'||(ch&&ch.rank<=100))return T('銀河を照らした星','この星の文明は、宇宙でも指折りの輝きを放った。','光は、遠い星まで届いた。');
+  if(top==='drama')return T('波乱万丈の星','何度も揺さぶられ、そのたびに立ち上がった。','平らな道はひとつもなかった。');
+  if(top==='rare')return T('奇跡の星','ほとんどの星がたどり着けない運命を引き当てた。','宇宙のくじ引きで、当たりを引いた。');
+  return T('不屈の星','どんな災害にも折れず、文明はいまも続いている。','倒れなかった。それがすべてだった。');
+}
+/* 4つの軸のレーダー(上から時計回り) */
+function evalRadarSvg(S){
+  const W=260,c=130,R=82,pt=(i,v)=>{const a=-Math.PI/2+i*Math.PI/2;return [c+Math.cos(a)*R*v/100,c+Math.sin(a)*R*v/100]};
+  const ring=f=>EV_AXES.map((a,i)=>pt(i,f).map(n=>n.toFixed(1)).join(',')).join(' ');
+  const poly=EV_AXES.map(([k],i)=>pt(i,Math.max(4,S[k])).map(n=>n.toFixed(1)).join(',')).join(' ');
+  const lab=EV_AXES.map(([k,j],i)=>{const [x,y]=pt(i,128),an=i===1?'start':i===3?'end':'middle';return `<text x="${x.toFixed(0)}" y="${(y+(i===0?-2:i===2?12:5)).toFixed(0)}" text-anchor="${an}"><tspan class="ln">${j}</tspan> <tspan class="lv">${S[k]}</tspan></text>`}).join('');
+  return `<svg class="radar" viewBox="-40 -10 ${W+80} ${W+20}" role="img" aria-label="${EV_AXES.map(([k,j])=>j+S[k]).join('、')}">${[25,50,75,100].map(f=>`<polygon class="rg" points="${ring(f)}"/>`).join('')}${EV_AXES.map((a,i)=>{const [x,y]=pt(i,100);return `<line class="rg" x1="${c}" y1="${c}" x2="${x}" y2="${y}"/>`}).join('')}<polygon class="rv" points="${poly}"/>${lab}</svg>`;
+}
+function evalHTML(p){
+  const E=evalOshi(p),v=V(p),o=v.outcome,meta=[`${p.type.jp}`,E.mind?'知性あり':E.top?STAGE_JP[Math.min(4,E.top.stage)]:'命なし',E.ch?`歴代${E.ch.rank.toLocaleString('ja-JP')}位`:''].filter(Boolean).join(' ・ ');
+  return `<div class="evcard">
+   <div class="evhead"><div class="tile">${v.finalG?spr(v.finalG):plc(p)}</div><div><p class="eyebrow">${SHARED?'共有した人の推し':'あなたの推し'} ★ ${OSHI+1}番</p><h3 class="evname">${p.name}</h3><p class="evmeta">${meta}</p></div></div>
+   <div class="evtier"><b>${E.tier[1]}</b><span class="bar"><i style="width:${Math.round(E.total/4)}%"></i></span></div>
+   <div class="evend"><p class="lab">結末</p><p class="big">${o.title}</p><p class="sm">${gl(o.text)}</p></div>
+   <div class="evttl"><p class="lab">称号</p><p class="big">${E.ttl.t}</p><p class="sm">${E.ttl.d}</p></div>
+   <div class="evscore"><p class="lab">この星の評価</p>${evalRadarSvg(E.S)}
+     <p class="tot"><b>${E.total}</b><span>/ 400</span><em>「${E.tier[2]}」</em></p>
+     <p class="catch">${E.ttl.c}</p>
+     <div class="evtags">${E.tags.map(t=>`<span>${t}</span>`).join('')}</div>
+     <p class="evrare">${p.type.jp}が、この運命にたどり着く確率 <b>${E.r.txt}</b> ・ ${E.r.tier}</p></div>
+   <div class="evbtns"><button type="button" class="btn primary small" data-evimg="${p.id}">評価カードを画像で共有</button>${v.finalG?`<button type="button" class="btn small" data-prof="${p.id}">この種族をもっと知る</button>`:''}</div><div id="evOut"></div></div>`;
+}
+function evalLine(p){const E=evalOshi(p);return `評価${E.total}/400「${E.tier[2]}」称号「${E.ttl.t}」`}
+/* 共有用の画像 */
+function evalImage(p){
+  const E=evalOshi(p),v=V(p),o=v.outcome,W=720,H=1080,cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
+  const F="'DotGothic16','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif";
+  x.fillStyle='#0c0e1d';x.fillRect(0,0,W,H);const SR=mkRng(hashStr(GAL.seed+'ev'));for(let i=0;i<140;i++){x.globalAlpha=.15+SR()*.5;x.fillStyle='#b9c2ff';x.fillRect(Math.floor(SR()*W),Math.floor(SR()*H),2,2)}x.globalAlpha=1;
+  x.fillStyle='#ffd073';x.font=`24px ${F}`;x.fillText('いきつくほし',40,58);
+  x.fillStyle='#e9ebfa';x.font=`40px ${F}`;x.fillText(p.name,40,112);
+  x.fillStyle='#9aa1d2';x.font=`20px ${F}`;x.fillText(`${GAL.name} ・ ${p.type.jp}${E.ch?` ・ 宇宙ヒットチャート歴代${E.ch.rank.toLocaleString('ja-JP')}位`:''}`,40,146);
+  if(v.finalG){const sc=document.createElement('canvas');drawGenome(sc,v.finalG);x.imageSmoothingEnabled=false;x.drawImage(sc,W-150,30,110,110)}
+  x.fillStyle='#e9ebfa';x.font=`22px ${F}`;x.fillText(E.tier[1],40,192);x.fillStyle='#2c3160';x.fillRect(110,178,W-150,16);x.fillStyle='#ffd073';x.fillRect(110,178,(W-150)*E.total/400,16);
+  x.fillStyle='#eef0f8';x.fillRect(40,214,W-80,150);x.fillStyle='#b8860b';x.font=`18px ${F}`;x.fillText('結末',64,246);
+  x.fillStyle='#14162b';x.font=`36px ${F}`;wrapText(x,o.title,64,296,W-128,44,2);
+  x.strokeStyle='#eef0f8';x.lineWidth=3;x.strokeRect(40,364,W-80,120);x.fillStyle='#9aa1d2';x.font=`18px ${F}`;x.fillText('称号',64,398);
+  x.fillStyle='#ffffff';x.font=`34px ${F}`;x.fillText(E.ttl.t,64,444);x.fillStyle='#9aa1d2';x.font=`18px ${F}`;wrapText(x,E.ttl.d,64,472,W-128,22,1);
+  // レーダー
+  const cx=W/2,cy=690,R=140,pt=(i,val)=>{const a=-Math.PI/2+i*Math.PI/2;return [cx+Math.cos(a)*R*val/100,cy+Math.sin(a)*R*val/100]};
+  x.strokeStyle='#2c3160';x.lineWidth=1.5;[25,50,75,100].forEach(f=>{x.beginPath();EV_AXES.forEach((a,i)=>{const [px,py]=pt(i,f);i?x.lineTo(px,py):x.moveTo(px,py)});x.closePath();x.stroke()});
+  x.beginPath();EV_AXES.forEach(([k],i)=>{const [px,py]=pt(i,Math.max(4,E.S[k]));i?x.lineTo(px,py):x.moveTo(px,py)});x.closePath();x.fillStyle='rgba(255,208,115,.72)';x.fill();x.strokeStyle='#ffffff';x.lineWidth=3;x.stroke();
+  x.font=`22px ${F}`;x.fillStyle='#e9ebfa';EV_AXES.forEach(([k,j],i)=>{const [px,py]=pt(i,122);x.textAlign=i===1?'left':i===3?'right':'center';x.fillText(`${j} ${E.S[k]}`,px,py+(i===0?-4:i===2?20:8))});x.textAlign='left';
+  x.fillStyle='#ffffff';x.font=`72px ${F}`;x.fillText(String(E.total),40,948);const tw=x.measureText(String(E.total)).width;
+  x.font=`26px ${F}`;x.fillStyle='#9aa1d2';x.fillText('/ 400',52+tw,948);x.fillStyle='#ffd073';x.fillText(`「${E.tier[2]}」`,140+tw,948);
+  x.fillStyle='#e9ebfa';x.font=`24px ${F}`;wrapText(x,E.ttl.c,40,996,W-80,30,1);
+  x.fillStyle='#9aa1d2';x.font=`18px ${F}`;x.fillText(E.tags.slice(0,4).join(' / '),40,1036);x.fillText(`銀河コード ${resultCode()}`,40,1064);
+  return cv;
+}
+function evalShare(pid){
+  const p=GAL.planets[pid],out=document.getElementById('evOut');if(!p||!out)return;
+  const cv=evalImage(p);let url='';try{url=cv.toDataURL('image/png')}catch(e){}
+  out.innerHTML=url?`<p class="pnote">画像を長押し(パソコンは右クリック)で保存できます。</p><img class="pimg" alt="${p.name}の評価カード" src="${url}">`:'<p class="pnote">画像を作れませんでした。</p>';
+  try{cv.toBlob(b=>{if(!b||!navigator.canShare)return;const f=new File([b],'ikitsukuhoshi.png',{type:'image/png'});
+    if(navigator.canShare({files:[f]})){const bt=document.createElement('button');bt.type='button';bt.className='btn small';bt.textContent='アプリで共有';bt.onclick=()=>{navigator.share({files:[f],text:SHARE}).catch(()=>{})};out.prepend(bt)}})}catch(e){}
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-evimg]');if(b)evalShare(+b.dataset.evimg)});
+
+/* =====================================================
    画面
    ===================================================== */
 const $=s=>document.querySelector(s);
@@ -1884,13 +2016,13 @@ function renderDigest(){
   let oshiTxt='';
   if(OSHI!=null&&ps[OSHI]){
     const p=ps[OSHI],v=V(p),o=v.outcome,vd={thriving:'推しは、いまも生き延びている。',ascended:'推しは、高い存在へ昇華した。',allied:'推しは、異星の仲間と共に生きている。',ruins:'推しは衰えたが、種は残った。',evolving:'推しはまだ進化の途中にいる。',extinct:'推しは滅んだ。それでも、この記録は残る。',barren:'推しの星に、命は生まれなかった。'}[o.kind];
-    $('#oshiResult').innerHTML=`<div class="oshi-card"><div class="tile">${v.finalG?spr(v.finalG):plc(p)}</div><div><p class="eyebrow">${SHARED?'共有した人の推し':'あなたの推し'} ★ ${OSHI+1}番 ${p.name}</p><h3>${o.title}</h3><p>${gl(o.text)}</p><p class="verdict">${vd}</p><p class="rare">${p.type.jp}が、この運命にたどり着く確率 <b>${rarity(p).txt}</b> ・ ${rarity(p).tier}</p>${v.finalG?`<button type="button" class="btn small pbtn" data-prof="${p.id}">この種族をもっと知る・共有する</button>`:''}</div></div>`;
-    oshiTxt=`推し: ${p.name}は「${o.title}」(${rarity(p).txt}の運命)。\n`;
+    $('#oshiResult').innerHTML=evalHTML(p);
+    oshiTxt=`推し: ${p.name}は「${o.title}」(${rarity(p).txt}の運命)。\n${evalLine(p)}\n`;
   }else $('#oshiResult').innerHTML='';
   renderChart();if(OSHI!=null&&ps[OSHI])oshiTxt+=chartLine()+'\n';
   SHARE=`いきつくほし\n「${ti.replace(/[「」]/g,'')}」(${G.name})\n${sub}\n${oshiTxt}${MODS.length?'神の一手を'+MODS.length+'回使った。\n':''}銀河コード: ${resultCode()}`;
   {const xb=document.getElementById('xBtn');if(xb){let xt;
-    if(OSHI!=null&&ps[OSHI]){const p=ps[OSHI],o=V(p).outcome,r=rarity(p);xt=`推しの星「${p.name}」は「${o.title}」${r.N>=8?`。${r.txt}の運命でした`:'でした'}🪐\n${chartLine()}\n銀河は「${ti.replace(/[「」]/g,'')}」になりました。`}
+    if(OSHI!=null&&ps[OSHI]){const p=ps[OSHI],o=V(p).outcome,r=rarity(p);xt=`推しの星「${p.name}」は「${o.title}」${r.N>=8?`。${r.txt}の運命でした`:'でした'}🪐\n${evalLine(p)}\n${chartLine()}\n銀河は「${ti.replace(/[「」]/g,'')}」になりました。`}
     else xt=`「${ti.replace(/[「」]/g,'')}」を見届けました🪐 ${sub}`;
     xb.href=xHref(xt)}}
   {const sq=document.getElementById('seqBtn');if(sq)sq.href=GAME_URL+'mono/?c='+encodeURIComponent(resultCode())}
