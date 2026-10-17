@@ -247,6 +247,12 @@ body[data-ph="result"] [data-only]:not([data-only~="result"]){display:none!impor
 .resultsec,.startsec{display:flex;flex-direction:column;gap:14px}.startsec h2{margin-top:10px!important}
 @media (max-width:480px){.world{grid-template-columns:84px 1fr;gap:12px;padding:12px}.stage{grid-template-columns:72px minmax(0,1fr);gap:10px}.endgrid{grid-template-columns:repeat(2,1fr)}}
 @media (prefers-reduced-motion: reduce){.roll .rl{transition:none}#feed li,.stage.flip .bx,.modal,.mcard{animation:none}}
+.pickbox{display:flex;flex-direction:column;gap:8px;margin-bottom:6px}
+.pickrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;max-height:320px;overflow-y:auto;padding:2px}
+.pk{display:grid;grid-template-columns:40px minmax(0,1fr);gap:8px;align-items:center;text-align:left;padding:8px 12px 8px 8px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--fg);font:inherit;cursor:pointer;min-width:0}
+.pk .tile{width:40px}.pk b{display:block;font:400 14px/1.3 var(--f-disp);white-space:nowrap}.pk small{display:block;font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pk .kd{display:inline-block;margin-top:2px;font:400 11.5px/1 var(--f-disp);padding:3px 6px;border-radius:3px;background:var(--c);color:#14162b}
+.pk[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset}
 </style>
 </head>
 <body>
@@ -268,6 +274,7 @@ body[data-ph="result"] [data-only]:not([data-only~="result"]){display:none!impor
   </header>
 
   <section class="startsec" data-only="start" aria-label="舞台と人物">
+    <div class="pickbox"><p class="eyebrow">どの星の種族から始める?</p><div class="pickrow" id="pickRow" role="group" aria-label="始める星を選ぶ"></div><p class="note">前作の結果がどうなっていても、この銀河のどの星からでも始められます。命が生まれなかった星は、命が宿るまで世界線をやり直してから始まります。</p></div>
     <p class="eyebrow">この続きから始まる</p>
     <div class="world" id="world"></div>
     <h2 style="margin-top:18px">一族の始まりの一人を選ぶ</h2>
@@ -1851,6 +1858,7 @@ function wordOf(spec,key,forName){
 function buildBase(codeStr){
   const d=parseCode2(codeStr);if(!d)return null;
   RARE=d.r;let w=Object.assign({},d.w),G=simulate(d.g,w,d.m);
+  const G0=G,oshi0=(d.ver&&d.o!=null&&G.planets[d.o])?d.o:null,fromCode=!!d.ver;
   if(d.o==null||!G.planets[d.o])d.o=pickPlanet(G,mkRng(hashStr(d.g+'pick')));
   const pid=d.o,orig=codeOf(Object.assign({},d,{w:Object.assign({},d.w)}));
   let p=G.planets[pid],tries=0;
@@ -1868,7 +1876,7 @@ function buildBase(codeStr){
   const L=speciesLore(p,top);                       // 前作の「種族の詳しい情報」と同じ内容
   const Lx=L.mind?L:speciesLore(p,Object.assign({},top,{stage:4})); // 知性を得たあとの言葉
   const spec=phonSpec(loreRng(p,top.name),p.sense);
-  const B={code:codeOf(d),orig,d,G,p,pid,kind,top,L,Lx,spec,tries,fromCode:!!(d.ver||d.o!=null),barren:tries>0};
+  const B={code:codeOf(d),orig,d,G,G0,oshi0,p,pid,kind,top,L,Lx,spec,tries,fromCode,barren:tries>0};
   B.sp=top.name;B.self=Lx.selfName||top.name;B.planetName=Lx.planetName||p.name;B.lang=Lx.langName||'ことば';
   B.lifeY=(()=>{const m=String(Lx.life||'').match(/(\d+)年/);return m?+m[1]:60})();
   B.oldName=null;B.cause='';B.asc='';B.part=null;B.age='';
@@ -2312,7 +2320,22 @@ function startFromCode(code){
   if(err)err.hidden=true;
   renderStart();setPhase('start');
 }
+function renderPick(){
+  const G=B.G0||B.G,el=$('#pickRow');if(!el)return;
+  el.innerHTML=G.planets.map((q,i)=>{const L=q.obs.lineage,top=L[L.length-1],k=q.obs.outcome.kind;
+    return `<button type="button" class="pk" data-pk="${i}" aria-pressed="${i===B.pid}">${top?`<div class="tile">${spr(top.g)}</div>`:`<canvas class="pl" data-plx="${i}" aria-hidden="true" style="width:40px;height:40px;image-rendering:pixelated"></canvas>`}<div><b>${i===B.oshi0?'★':''}${i+1}番 ${ESC(q.name)}</b><small>${top?ESC(top.name):'命なし(やり直して始める)'}</small><span class="kd" style="--c:${KC[k]}">${ESC(KIND_JP[k])}</span></div></button>`}).join('');
+  el.querySelectorAll('canvas[data-plx]').forEach(cv=>drawPlanet(cv,G.planets[+cv.dataset.plx]));
+  paintAll(el);
+  const cur=el.querySelector('[aria-pressed="true"]');if(cur)el.scrollTop=Math.max(0,cur.offsetTop-el.offsetTop-8)
+}
+function pickPlanetFor(i){
+  const d=parseCode2(B.orig);if(!d)return;d.o=i;const keep=B.oshi0,fc=B.fromCode;
+  const code=codeOf(d);if(!loadBase(code))return;
+  B.oshi0=keep;B.fromCode=fc;
+  renderStart();
+}
 function renderStart(){
+  renderPick();
   const p=B.p,L=B.L,ctx={B,S:{year:0,eras:[],invs:[],ents:[]},P:{name:''},R:mkRng(hashStr(B.code+'st'))};
   const outc=p.obs.outcome,k=B.kind;
   const intro=fillT(B.start.t[0],ctx);
@@ -2595,6 +2618,7 @@ document.addEventListener('click',ev=>{
   if(t.id==='enterBtn'){startFromCode(randomCode())}
   else if(t.id==='codeBtn'){const v=$('#codeIn').value.trim();if(/^debug$/i.test(v)){openDebug();return}if(v)startFromCode(v);else{const er=$('#codeErr');er.textContent='コードを入れてください。';er.hidden=false}}
   else if(t.dataset.ci!=null){selectCand(+t.dataset.ci)}
+  else if(t.dataset.pk!=null){pickPlanetFor(+t.dataset.pk)}
   else if(t.id==='goBtn'){startWatch()}
   else if(t.id==='otherBtn'||t.id==='newBtn'){SHARED=false;startFromCode(randomCode())}
   else if(t.id==='againBtn'){SHARED=false;renderStart();setPhase('start')}
